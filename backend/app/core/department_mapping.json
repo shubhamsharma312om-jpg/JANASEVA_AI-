@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "pilot_location": "Hyderabad",
+    "disclaimer": "Demonstration department mappings for Neural Storm 2026 (Track HI-02). Not verified official government routing rules.",
+    "version": "1.0.0"
+  },
+  "SupportedLanguages": [
+    { "code": "en", "name": "English", "native_name": "English" },
+    { "code": "te", "name": "Telugu", "native_name": "తెలుగు" },
+    { "code": "hi", "name": "Hindi", "native_name": "हिन्दी" }
+  ],
+  "mappings": [
+    {
+      "category": "Water Supply",
+      "department_id": "DEPT-WATER-01",
+      "department_name": "Water Supply Department",
+      "default_sla_hours": 24,
+      "description": "Piped water supply disruptions, contamination, low pressure, and main pipeline leakages."
+    },
+    {
+      "category": "Roads and Potholes",
+      "department_id": "DEPT-MUNI-02",
+      "department_name": "Municipal Engineering",
+      "default_sla_hours": 72,
+      "description": "Potholes, damaged road surfaces, broken footpaths, and arterial road resurfacing."
+    },
+    {
+      "category": "Garbage Collection",
+      "department_id": "DEPT-SANI-03",
+      "department_name": "Sanitation Department",
+      "default_sla_hours": 24,
+      "description": "Uncollected household waste, overflowing community bins, and street sweeping."
+    },
+    {
+      "category": "Electricity",
+      "department_id": "DEPT-ELEC-04",
+      "department_name": "Electricity Department",
+      "default_sla_hours": 12,
+      "description": "Power outages, transformer faults, voltage fluctuations, and distribution line hazards."
+    },
+    {
+      "category": "Streetlights",
+      "department_id": "DEPT-ELMT-05",
+      "department_name": "Electrical Maintenance",
+      "default_sla_hours": 48,
+      "description": "Non-functional street lamps, damaged light poles, and timer malfunctions on public streets."
+    },
+    {
+      "category": "Drainage",
+      "department_id": "DEPT-DRNG-06",
+      "department_name": "Drainage Department",
+      "default_sla_hours": 24,
+      "description": "Blocked stormwater drains, sewage overflow, open manholes, and waterlogging."
+    },
+    {
+      "category": "Public Safety",
+      "department_id": "DEPT-SAFE-07",
+      "department_name": "Relevant Civic Authority",
+      "default_sla_hours": 6,
+      "description": "Public hazards, fallen trees, unsafe civic structures, and urgent neighborhood safety concerns."
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "name": "JANASEVA AI — Phase 1 Architecture",
+  "description": "Every Voice Matters. Every Grievance Counts. Phase 1 Project Foundation and Architecture for the Multilingual Citizen Grievance Chatbot (Neural Storm 2026 - Track HI-02).",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
