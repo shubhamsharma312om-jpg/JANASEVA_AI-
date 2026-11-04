@@ -1,107 +1,119 @@
-# JANASEVA AI
+# JANASEVA AI — Multilingual Citizen Grievance Redressal Platform
 
 > **Every Voice Matters. Every Grievance Counts.**  
-> **Hackathon:** Neural Storm 2026 | **Track:** Human Impact (`HI-02 — Multilingual Citizen Grievance Chatbot`)  
-> **Pilot Location:** Hyderabad, India | **Target Languages:** English, Telugu (`తెలుగు`), Hindi (`हिन्दी`)
+> **Hackathon:** Neural Storm 2026 | **Track:** Human Impact (`HI-02 — Multilingual Citizen Grievance Platform`)  
+> **Pilot Location:** Hyderabad, India | **UI & Voice Languages:** English, Telugu (`తెలుగు`), Hindi (`हिन्दी`) + 20+ Indian Speech Languages
 
 ---
 
-## Project Overview (Phase 1: Project Foundation & Architecture)
+## 1. Overview
 
-**JANASEVA AI** is a multilingual citizen grievance redressal platform designed to bridge the communication gap between citizens and municipal authorities. Citizens can report civic issues in regional Indian languages (**English**, **Telugu**, and **Hindi**), which are processed to identify the relevant civic department, assess priority, generate a trackable ticket, and provide transparent resolution tracking.
-
-This repository currently implements **Phase 1 — Project Foundation and Architecture**:
-- Clean, modular separation between `frontend/` (React + Vite) and `backend/` (Python + FastAPI + Pydantic + SQLite).
-- Privacy-first SQLite database schema (`citizens`, `grievances`, `grievance_history`, `departments`) initialized and seeded with 7 configurable Hyderabad pilot department mappings.
-- Modular AI/NLP engine interface (`backend/app/ai_engine/`) ready for Phase 2 multilingual model integration (with zero fake/hardcoded AI responses in Phase 1).
-- Working `/api/health` and `/api/departments/` endpoints, plus full REST API contracts for grievance ingestion and tracking.
+**JANASEVA AI** is a voice-first, multilingual citizen grievance registration and municipal command platform built to make civic reporting accessible for both rural and urban citizens. Citizens can speak their complaints in their own language, listen to their transcribed complaint using **Read Aloud (Text-to-Speech)**, manually select the municipal department they want to complain to, provide their citizen & location details, review all details on the confirmation screen, and receive an instant trackable **Ticket ID**.
 
 ---
 
-## Repository Structure
+## 2. Key Features
 
-```text
-JANASEVA-AI/
-├── frontend/                  # Standalone React + Vite Frontend (JS, HTML5, CSS3)
-├── backend/                   # Python FastAPI + Pydantic + SQLite Backend
-│   ├── app/
-│   │   ├── api/routes/        # health.py, departments.py, grievances.py
-│   │   ├── core/              # config.py & configurable department_mapping.json
-│   │   ├── database/          # schema.sql, session.py, init_db.py
-│   │   ├── models/            # SQLAlchemy ORM models (Citizen, Department, Grievance)
-│   │   ├── schemas/           # Pydantic v2 request/response validation schemas
-│   │   ├── services/          # Business service layer (ticket ID & routing)
-│   │   ├── ai_engine/         # Modular NLP pipeline interface for Phase 2
-│   │   └── main.py            # FastAPI application entry point
-│   ├── tests/                 # Automated Phase 1 verification unit tests
-│   └── requirements.txt       # Python dependencies
-├── docs/                      # Detailed Database, API & Workflow documentation
-├── PROJECT_ARCHITECTURE.md    # Architectural decisions & system blueprint
-└── README.md                  # Setup and verification instructions
-```
+### A. Multilingual UI Switcher (`English` | `తెలుగు` | `हिन्दी`)
+- Available in the top navigation bar across all Public, Citizen, and Admin pages.
+- Instantly translates page headings, form labels, placeholders, department names, status badges, and buttons into **English**, **Telugu**, or **Hindi**.
+- Persists your language preference in `localStorage`.
+
+### B. Voice-to-Grievance Speech Recognition (Dual-Engine Architecture)
+- **Primary Engine:** **Sarvam AI — Saaras v4** (`POST /api/speech/transcribe`) supporting 22 scheduled Indian languages + Auto-Detect (`unknown`) and 5 output modes (`transcribe`, `translate`, `verbatim`, `transliterate`, `codemix`).
+- **Secondary Fallback Engine:** **Browser Web Speech API** (`SpeechRecognition` / `webkitSpeechRecognition`) that runs in parallel and automatically takes over if the API key is missing, credits are exhausted, or the network is offline—ensuring **spoken complaints are never lost**.
+- **Voice-First Dashboard Modal:** Citizens can tap the large circular microphone button directly on the Citizen Dashboard (`Speak Your Complaint`) or inside the Register Complaint page.
+
+### C. Read Aloud (Text-to-Speech Playback)
+- Integrated **Read Aloud** (`🔊 Read Aloud` / `⏹ Stop Reading`) button next to the Complaint Description box, inside the Voice Recording Modal, on the Review screen, and on Complaint Details / Tracking pages.
+- Reads the complaint aloud in Telugu (`te-IN`), Hindi (`hi-IN`), or English (`en-IN`) so citizens—including elderly or low-literacy users—can verify their complaint by listening before submitting.
+
+### D. Direct Manual Department Selection & 3-Step Registration Workflow
+- **No blocking AI analysis step:** Once the citizen speaks or types their complaint into the **Complaint Description** box and listens to it with **Read Aloud**, they **manually select the Municipal Department** they want to complain to from the 7 civic categories:
+  1. **Water Supply** $\rightarrow$ *Water Supply Department* (`DEPT-WATER`)
+  2. **Roads and Potholes** $\rightarrow$ *Municipal Engineering* (`DEPT-ROADS`)
+  3. **Garbage Collection** $\rightarrow$ *Sanitation Department* (`DEPT-SANITATION`)
+  4. **Electricity** $\rightarrow$ *Electricity Department* (`DEPT-ELECTRICITY`)
+  5. **Streetlights** $\rightarrow$ *Electrical Maintenance* (`DEPT-STREETLIGHTS`)
+  6. **Drainage** $\rightarrow$ *Drainage Department* (`DEPT-DRAINAGE`)
+  7. **Public Safety** $\rightarrow$ *Relevant Civic Authority* (`DEPT-SAFETY`)
+- **Citizen & Rural/Urban Location Form:**
+  - **Section A — Citizen Information:** Full Name (`*`), Mobile Number, Email Address, Designation / Occupation, Citizen Reference ID.
+  - **Section B — Location Information:** Village / Town / City (`*`), Area / Colony / Street (`*`), Nearby Landmark (`*`), plus optional House/Plot Number, Mandal/Zone, District, State, and PIN Code.
+  - **Section C — Complaint Details:** Complaint Description (`*`), Department Selection (`*`), Priority Level, Problem Duration, Incident Date, Affected People, and optional Photo/PDF attachment.
+- **Direct Proceed to Review:** Clicking **"Proceed to Review →"** takes the citizen directly to **Step 2 (Review & Confirm)** where they verify all details and click **"Confirm & Register Grievance Ticket"** to generate an official Ticket ID (e.g., `JANA-HYD-2026-XXXX`).
+
+### E. Live Ticket Tracking & Municipal Admin Command Center
+- **Track Complaint (`/track` or `/citizen/track`):** Look up any Ticket ID to inspect real-time status (`SUBMITTED` $\rightarrow$ `ASSIGNED` $\rightarrow$ `IN_PROGRESS` $\rightarrow$ `RESOLVED`), assigned department, priority, and timestamped officer audit remarks.
+- **Admin Dashboard (`/admin/dashboard`):** Real-time analytics charts, department routing queues, SLA monitoring, and status/priority management across all 7 municipal departments.
 
 ---
 
-## Local Setup & Execution Instructions
+## 3. Step-by-Step Instructions: How to Use the App
 
-### 1. Backend Setup (Python + FastAPI + SQLite)
+### Step 1: Switch Interface Language (Optional)
+1. Use the **UI Language** dropdown in the top header to choose **English**, **తెలుగు (Telugu)**, or **हिन्दी (Hindi)**.
 
+### Step 2: Sign In with One-Click Demo Accounts (or Browse Publicly)
+1. Click **Login** in the top navigation bar (or click **Try Citizen or Admin Demo Login** on the Home page).
+2. Use the **One-Click Demo Login** cards:
+   - **Citizen Demo Account (`Arjun Reddy`):** Opens the **Citizen Dashboard** (`/citizen/dashboard`).
+   - **Admin Demo Account (`Priya Sharma — GHMC Commissionerate`):** Opens the **Municipal Command Dashboard** (`/admin/dashboard`).
+
+### Step 3: Register a Complaint Using Voice & Read Aloud
+1. Go to **Citizen Dashboard** $\rightarrow$ click **Register a New Complaint** (or tap the large microphone button on the dashboard).
+2. **Speak Your Complaint:**
+   - Select your spoken language (`English`, `తెలుగు`, `हिन्दी`, or `Auto-Detect`) and click the **Microphone button**.
+   - Speak your civic issue clearly and click **Stop Recording**.
+   - Review the recognized text and click **Confirm Transcription** (or **Continue to Complaint Form →** if using the dashboard modal). Your spoken words are placed directly into the **Complaint Description** text box.
+   - *(Tip: You can also click one of the **Try a Multilingual Demo Complaint** buttons at the top of the page—`తెలుగు (Water Supply)`, `हिन्दी (Streetlights)`, or `English (Roads & Potholes)`—to pre-fill a complete sample complaint.)*
+3. **Listen with Read Aloud:**
+   - Click the **Read Aloud** button right above the Complaint Description box to hear your complaint read back to you.
+4. **Manually Select the Municipal Department:**
+   - Under **Select Municipal Department for Your Complaint**, click the department card or dropdown for your issue (`Water Supply`, `Roads and Potholes`, `Garbage Collection`, `Electricity`, `Streetlights`, `Drainage`, or `Public Safety`) and choose the **Priority Level** (`LOW`, `MEDIUM`, `HIGH`, `CRITICAL`).
+5. **Complete Citizen & Location Details:**
+   - Fill in **Section A (Citizen Information)**: Full Name (`*`) and optional contact details.
+   - Fill in **Section B (Location Information)**: Village/Town/City (`*`), Area/Colony/Street (`*`), and Nearby Landmark (`*`), plus any optional address details.
+6. **Proceed Directly to Review:**
+   - Click **"Proceed to Review →"** at the bottom of the form.
+7. **Review & Confirm Submission:**
+   - On **Step 2 (Review & Confirm)**, verify your selected Department, Complaint Description (you can use **Read Aloud** or edit any field), Citizen Information, and Location Information.
+   - Click **"Confirm & Register Grievance Ticket"**.
+8. **Get Your Official Ticket ID:**
+   - On **Step 3 (Ticket Confirmation)**, copy your generated **Official Grievance Ticket ID** (e.g., `JANA-HYD-2026-1049`) or click **Track Live Status** / **View My Complaints**.
+
+### Step 4: Track Your Grievance Status
+1. Navigate to **Track Complaint** (`/track` or `/citizen/track`).
+2. Enter your **Ticket ID** (or click one of the active demo tickets listed on the page) and click **Track Status**.
+3. View the assigned department, current status badge, full complaint description (with **Read Aloud**), and the chronological audit trail.
+
+### Step 5: Manage Grievances as a Municipal Admin
+1. Switch to the Admin view (via **Login $\rightarrow$ Admin Demo Account** or `/admin/dashboard`).
+2. Inspect live charts across all 7 categories and departments.
+3. Go to **All Complaints** (`/admin/complaints`) to filter tickets by status, category, department, or priority.
+4. Click **Manage** on any complaint to update its status (`ASSIGNED`, `IN_PROGRESS`, `RESOLVED`, `REJECTED`), adjust priority, and record official field engineer remarks.
+
+---
+
+## 4. Local Setup & Running the Application
+
+### Unified Full-Stack Development Server (Port 3000)
 ```bash
-# 1. Navigate to the backend directory
-cd backend
-
-# 2. Create and activate a Python virtual environment
-python3 -m venv venv
-source venv/bin/activate        # On Windows: venv\Scripts\activate
-
-# 3. Install Python dependencies
-pip install -r requirements.txt
-
-# 4. Copy environment variables example
-cp .env.example .env
-
-# 5. Initialize the SQLite database (janaseva.db) and seed the 7 departments
-python3 app/database/init_db.py
-
-# 6. Run automated Phase 1 unit tests
-python3 -m unittest discover -s tests -p "test_*.py" -v
-
-# 7. Start the FastAPI development server on port 8000
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-Once running:
-- **Health Check Endpoint:** `http://127.0.0.1:8000/api/health`
-- **Departments & Mappings Endpoint:** `http://127.0.0.1:8000/api/departments/`
-- **Interactive Swagger API Docs:** `http://127.0.0.1:8000/docs`
-
----
-
-### 2. Frontend Setup (React + Vite)
-
-```bash
-# 1. Open a new terminal and navigate to the frontend directory
-cd frontend
-
-# 2. Copy environment configuration
-cp .env.example .env
-
-# 3. Install frontend dependencies
+# 1. Install Node.js dependencies
 npm install
 
-# 4. Start the Vite development server
+# 2. Copy environment configuration (optional: add SARVAM_API_KEY in .env)
+cp .env.example .env
+
+# 3. Start the full-stack Express + Vite server on port 3000
 npm run dev
 ```
 
----
-
-## Phase 1 Verification Commands
-
+### Optional: Python FastAPI Backend & SQLite Database Verification
 ```bash
-# Verify SQLite database creation & run automated backend tests:
+# Initialize SQLite database and seed the 7 municipal departments
 python3 backend/app/database/init_db.py
-python3 -m unittest discover -s backend/tests -p "test_*.py" -v
 
-# Verify /api/health endpoint response:
-curl -s http://localhost:3000/api/health
+# Run backend unit tests
+python3 -m unittest discover -s backend/tests -p "test_*.py" -v
 ```

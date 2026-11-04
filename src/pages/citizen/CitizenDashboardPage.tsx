@@ -67,7 +67,6 @@ export const CitizenDashboardPage: React.FC = () => {
       state: {
         voiceTranscript: payload.transcript,
         detectedLanguage: payload.detectedLanguage,
-        autoAnalyze: true,
       },
     });
   };

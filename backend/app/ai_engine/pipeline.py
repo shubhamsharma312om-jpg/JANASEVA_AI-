@@ -259,149 +259,155 @@ class IntelligentGrievancePipeline(BaseNLPPipeline):
         ai_provider_used = "python_fallback"
 
         if llm_candidate and isinstance(llm_candidate, dict):
-            processing_source = "hybrid"
-            ai_provider_used = f"gemini ({settings.GEMINI_MODEL}) + python_validator"
+            try:
+                processing_source = "hybrid"
+                ai_provider_used = f"gemini ({settings.GEMINI_MODEL}) + python_validator"
 
-            # 5.1 Language from Gemini (preserve script-specific 'te'/'hi'/'hi-en'/'te-en' if Python detected script)
-            llm_lang = str(llm_candidate.get("detected_language") or "").strip().lower()
-            if llm_lang in ("en", "te", "hi", "hi-en", "te-en") and py_detected_lang == "en":
-                detected_lang = llm_lang
+                # 5.1 Language from Gemini (preserve script-specific 'te'/'hi'/'hi-en'/'te-en' if Python detected script)
+                llm_lang = str(llm_candidate.get("detected_language") or "").strip().lower()
+                if llm_lang in ("en", "te", "hi", "hi-en", "te-en") and py_detected_lang == "en":
+                    detected_lang = llm_lang
 
-            # 5.2 Intent from Gemini (validated against SUPPORTED_INTENT_TYPES, with Python safety override for live danger)
-            llm_intent = str(llm_candidate.get("intent_type") or "").strip().upper()
-            if (
-                llm_intent in settings.SUPPORTED_INTENT_TYPES
-                and intent_type != "EMERGENCY_OR_IMMEDIATE_DANGER"
-            ):
-                # Do not allow Gemini to misclassify a clear civic grievance (score >= 3.0) as unrelated
-                if llm_intent in ("GREETING", "UNRELATED_QUERY", "GENERAL_QUESTION") and is_valid_grievance and confidence_score >= 0.80:
-                    pass
-                else:
-                    intent_type = llm_intent
-                    is_valid_grievance = intent_type in (
-                        "CIVIC_GRIEVANCE",
-                        "EMERGENCY_OR_IMMEDIATE_DANGER",
-                    )
-
-            # 5.3 Citizen Details from Gemini (Primary; Python validator will strip if hallucinated)
-            for c_field, py_val in (
-                ("citizen_name", citizen_name),
-                ("contact_number", contact_number),
-                ("email", email),
-                ("designation", designation),
-            ):
-                llm_val = llm_candidate.get(c_field)
-                if isinstance(llm_val, str) and llm_val.strip() and llm_val.strip().lower() not in ("null", "none", "not provided", "unknown"):
-                    if c_field == "citizen_name":
-                        citizen_name = llm_val.strip()
-                    elif c_field == "contact_number":
-                        contact_number = llm_val.strip()
-                    elif c_field == "email":
-                        email = llm_val.strip()
-                    elif c_field == "designation":
-                        designation = llm_val.strip()
-
-            # 5.4 Location from Gemini (Primary for all 11 fields; filtered against generic phrases)
-            llm_loc = llm_candidate.get("location")
-            if isinstance(llm_loc, dict):
-                for loc_field in (
-                    "village",
-                    "town",
-                    "city",
-                    "district",
-                    "mandal",
-                    "ward",
-                    "area",
-                    "street",
-                    "house_number",
-                    "landmark",
-                    "pincode",
+                # 5.2 Intent from Gemini (validated against SUPPORTED_INTENT_TYPES, with Python safety override for live danger)
+                llm_intent = str(llm_candidate.get("intent_type") or "").strip().upper()
+                if (
+                    llm_intent in settings.SUPPORTED_INTENT_TYPES
+                    and intent_type != "EMERGENCY_OR_IMMEDIATE_DANGER"
                 ):
-                    llm_loc_val = llm_loc.get(loc_field)
-                    if (
-                        isinstance(llm_loc_val, str)
-                        and llm_loc_val.strip()
-                        and llm_loc_val.strip().lower() not in ("null", "none", "not provided", "unknown")
-                        and not is_generic_location_phrase(llm_loc_val)
-                    ):
-                        # Accept Gemini's extracted location if grounded in transcript or if Python had None
-                        if getattr(location_obj, loc_field) is None or llm_loc_val.strip().lower() in effective_transcript.lower():
-                            setattr(location_obj, loc_field, llm_loc_val.strip())
-
-            # 5.5 Grievance Metadata from Gemini (Primary)
-            if isinstance(llm_candidate.get("problem_duration"), str) and llm_candidate["problem_duration"].strip():
-                problem_duration = llm_candidate["problem_duration"].strip()
-            if isinstance(llm_candidate.get("incident_date"), str) and llm_candidate["incident_date"].strip():
-                incident_date = llm_candidate["incident_date"].strip()
-            if isinstance(llm_candidate.get("affected_people"), str) and llm_candidate["affected_people"].strip():
-                affected_people = llm_candidate["affected_people"].strip()
-
-            # 5.6 Department Classification from Gemini (Primary when valid grievance)
-            if is_valid_grievance:
-                llm_cat_raw = llm_candidate.get("department_category")
-                norm_cat = department_classifier.normalize_category_name(llm_cat_raw)
-                if norm_cat:
-                    # Respect Gemini's semantic classification unless multi-issue tiebreaker applies
-                    if not (
-                        secondary_categories
-                        and dept_category == "Water Supply"
-                        and norm_cat == "Roads and Potholes"
-                    ):
-                        rec = department_classifier.by_category[norm_cat]
-                        dept_category = rec["category"]
-                        dept_name = rec["department_name"]
-                        dept_id = rec["department_id"]
-
-                if isinstance(llm_candidate.get("classification_explanation"), str) and llm_candidate["classification_explanation"].strip():
-                    classification_explanation = llm_candidate["classification_explanation"].strip()
-
-                if isinstance(llm_candidate.get("confidence_score"), (int, float)):
-                    llm_conf = float(llm_candidate["confidence_score"])
-                    if 0.0 < llm_conf <= 1.0:
-                        confidence_score = round(max(confidence_score, llm_conf), 2)
-                        confidence_band = department_classifier.get_confidence_band(
-                            confidence_score
+                    # Do not allow Gemini to misclassify a clear civic grievance (score >= 3.0) as unrelated
+                    if llm_intent in ("GREETING", "UNRELATED_QUERY", "GENERAL_QUESTION") and is_valid_grievance and confidence_score >= 0.80:
+                        pass
+                    else:
+                        intent_type = llm_intent
+                        is_valid_grievance = intent_type in (
+                            "CIVIC_GRIEVANCE",
+                            "EMERGENCY_OR_IMMEDIATE_DANGER",
                         )
 
-                # Merge secondary categories from Gemini
-                if isinstance(llm_candidate.get("secondary_categories"), list):
-                    for sc_item in llm_candidate["secondary_categories"]:
-                        norm_sc = department_classifier.normalize_category_name(sc_item)
-                        if norm_sc and norm_sc != dept_category and norm_sc not in secondary_categories:
-                            secondary_categories.append(norm_sc)
+                # 5.3 Citizen Details from Gemini (Primary; Python validator will strip if hallucinated)
+                for c_field, py_val in (
+                    ("citizen_name", citizen_name),
+                    ("contact_number", contact_number),
+                    ("email", email),
+                    ("designation", designation),
+                ):
+                    llm_val = llm_candidate.get(c_field)
+                    if isinstance(llm_val, str) and llm_val.strip() and llm_val.strip().lower() not in ("null", "none", "not provided", "unknown"):
+                        if c_field == "citizen_name":
+                            citizen_name = llm_val.strip()
+                        elif c_field == "contact_number":
+                            contact_number = llm_val.strip()
+                        elif c_field == "email":
+                            email = llm_val.strip()
+                        elif c_field == "designation":
+                            designation = llm_val.strip()
 
-                # Rebuild identified_issues if secondary_categories changed
-                if secondary_categories:
-                    identified_issues = department_classifier.build_identified_issues(
-                        text=effective_transcript,
-                        primary_category=dept_category or "Water Supply",
-                        secondary_categories=secondary_categories,
-                        scores={dept_category or "Water Supply": 4.5},
-                        location=location_obj,
-                    )
-            else:
-                dept_category = None
-                dept_name = None
-                dept_id = None
-                secondary_categories = []
-                identified_issues = []
+                # 5.4 Location from Gemini (Primary for all 11 fields; filtered against generic phrases)
+                llm_loc = llm_candidate.get("location")
+                if isinstance(llm_loc, dict):
+                    for loc_field in (
+                        "village",
+                        "town",
+                        "city",
+                        "district",
+                        "mandal",
+                        "ward",
+                        "area",
+                        "street",
+                        "house_number",
+                        "landmark",
+                        "pincode",
+                    ):
+                        llm_loc_val = llm_loc.get(loc_field)
+                        if (
+                            isinstance(llm_loc_val, str)
+                            and llm_loc_val.strip()
+                            and llm_loc_val.strip().lower() not in ("null", "none", "not provided", "unknown")
+                            and not is_generic_location_phrase(llm_loc_val)
+                        ):
+                            # Accept Gemini's extracted location if grounded in transcript or if Python had None
+                            if getattr(location_obj, loc_field) is None or llm_loc_val.strip().lower() in effective_transcript.lower():
+                                setattr(location_obj, loc_field, llm_loc_val.strip())
 
-            # 5.7 Priority & Reason from Gemini (Primary, except never downgrade CRITICAL safety hazards)
-            llm_prio = str(llm_candidate.get("priority") or "").strip().lower()
-            if (
-                llm_prio in ("low", "normal", "high", "critical")
-                and priority != "critical"
-                and is_valid_grievance
-            ):
-                # Do not allow false urgency on 2-day streetlight maintenance
-                if not (dept_category == "Streetlights" and priority == "normal" and llm_prio in ("high", "critical")):
-                    priority = llm_prio
-                    if isinstance(llm_candidate.get("priority_reason"), str) and llm_candidate["priority_reason"].strip():
-                        priority_reason = llm_candidate["priority_reason"].strip()
+                # 5.5 Grievance Metadata from Gemini (Primary)
+                if isinstance(llm_candidate.get("problem_duration"), str) and llm_candidate["problem_duration"].strip():
+                    problem_duration = llm_candidate["problem_duration"].strip()
+                if isinstance(llm_candidate.get("incident_date"), str) and llm_candidate["incident_date"].strip():
+                    incident_date = llm_candidate["incident_date"].strip()
+                if isinstance(llm_candidate.get("affected_people"), str) and llm_candidate["affected_people"].strip():
+                    affected_people = llm_candidate["affected_people"].strip()
 
-            # 5.8 Clarification Question from Gemini
-            if isinstance(llm_candidate.get("clarification_question"), str) and llm_candidate["clarification_question"].strip():
-                clarification_question = llm_candidate["clarification_question"].strip()
+                # 5.6 Department Classification from Gemini (Primary when valid grievance)
+                if is_valid_grievance:
+                    llm_cat_raw = llm_candidate.get("department_category")
+                    norm_cat = department_classifier.normalize_category_name(llm_cat_raw)
+                    if norm_cat:
+                        # Respect Gemini's semantic classification unless multi-issue tiebreaker applies
+                        if not (
+                            secondary_categories
+                            and dept_category == "Water Supply"
+                            and norm_cat == "Roads and Potholes"
+                        ):
+                            rec = department_classifier.by_category[norm_cat]
+                            dept_category = rec["category"]
+                            dept_name = rec["department_name"]
+                            dept_id = rec["department_id"]
+
+                    if isinstance(llm_candidate.get("classification_explanation"), str) and llm_candidate["classification_explanation"].strip():
+                        classification_explanation = llm_candidate["classification_explanation"].strip()
+
+                    if isinstance(llm_candidate.get("confidence_score"), (int, float)):
+                        llm_conf = float(llm_candidate["confidence_score"])
+                        if 0.0 < llm_conf <= 1.0:
+                            confidence_score = round(max(confidence_score, llm_conf), 2)
+                            confidence_band = department_classifier.get_confidence_band(
+                                confidence_score
+                            )
+
+                    # Merge secondary categories from Gemini
+                    if isinstance(llm_candidate.get("secondary_categories"), list):
+                        for sc_item in llm_candidate["secondary_categories"]:
+                            norm_sc = department_classifier.normalize_category_name(sc_item)
+                            if norm_sc and norm_sc != dept_category and norm_sc not in secondary_categories:
+                                secondary_categories.append(norm_sc)
+
+                    # Rebuild identified_issues if secondary_categories changed
+                    if secondary_categories:
+                        identified_issues = department_classifier.build_identified_issues(
+                            text=effective_transcript,
+                            primary_category=dept_category or "Water Supply",
+                            secondary_categories=secondary_categories,
+                            scores={dept_category or "Water Supply": 4.5},
+                            location=location_obj,
+                        )
+                else:
+                    dept_category = None
+                    dept_name = None
+                    dept_id = None
+                    secondary_categories = []
+                    identified_issues = []
+
+                # 5.7 Priority & Reason from Gemini (Primary, except never downgrade CRITICAL safety hazards)
+                llm_prio = str(llm_candidate.get("priority") or "").strip().lower()
+                if (
+                    llm_prio in ("low", "normal", "high", "critical")
+                    and priority != "critical"
+                    and is_valid_grievance
+                ):
+                    # Do not allow false urgency on 2-day streetlight maintenance
+                    if not (dept_category == "Streetlights" and priority == "normal" and llm_prio in ("high", "critical")):
+                        priority = llm_prio
+                        if isinstance(llm_candidate.get("priority_reason"), str) and llm_candidate["priority_reason"].strip():
+                            priority_reason = llm_candidate["priority_reason"].strip()
+
+                # 5.8 Clarification Question from Gemini
+                if isinstance(llm_candidate.get("clarification_question"), str) and llm_candidate["clarification_question"].strip():
+                    clarification_question = llm_candidate["clarification_question"].strip()
+            except Exception as merge_exc:
+                logger.warning("Gemini candidate merge encountered error, using Python fallback: %s", merge_exc)
+                processing_source = "python_fallback"
+                ai_provider_used = "python_fallback"
+                llm_candidate = None
         else:
             # Refresh contextual clarification question in case location_obj was enriched by conversation_context
             if needs_clarification or not is_valid_grievance or not location_obj.landmark or bool(prev_transcript):
@@ -417,6 +423,7 @@ class IntelligentGrievancePipeline(BaseNLPPipeline):
                         ),
                         location=location_obj,
                         problem_duration=problem_duration,
+                        citizen_name=citizen_name,
                     )
                 )
 

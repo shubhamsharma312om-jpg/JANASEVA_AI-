@@ -170,7 +170,7 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     // Voice Recording Modal
     'voiceModal.title': 'Voice-to-Grievance Assistant',
     'voiceModal.subtitle':
-      'Speak naturally in English, తెలుగు (Telugu), or हिन्दी (Hindi). Your words will be transcribed and analyzed by AI.',
+      'Speak naturally in English, తెలుగు (Telugu), or हिन्दी (Hindi). Your speech will be converted into text and placed into your complaint description.',
     'voiceModal.selectSpokenLanguage': 'Spoken Language for Recognition:',
     'voiceModal.autoDetect': 'Auto-Detect (Recommended)',
     'voiceModal.startRecording': 'Start Speaking',
@@ -183,12 +183,12 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'voiceModal.transcriptPlaceholder':
       'Your spoken grievance will appear here. You can also type or edit directly...',
     'voiceModal.recordAgain': 'Record Again',
-    'voiceModal.continueToAi': 'Continue to AI Analysis',
+    'voiceModal.continueToAi': 'Continue to Complaint Form →',
     'voiceModal.cancel': 'Cancel',
     'voiceModal.emptyWarning':
-      'Please record your voice or type your complaint before continuing to AI Analysis.',
+      'Please record your voice or type your complaint before continuing.',
     'voiceModal.tip':
-      'Tip: Mention your Name, Village/City, Area/Street, Nearby Landmark, and the problem you are facing.',
+      'Tip: Speak your complaint clearly. It will be placed into the Complaint Description box where you can listen via Read Aloud and select your department.',
 
     // Read Aloud (TTS)
     'tts.readAloud': 'Read Aloud',
@@ -202,9 +202,9 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     // Citizen-Friendly Complaint Registration Page (Sections A, B, C & Review)
     'registerComplaint.title': 'Register a Civic Grievance',
     'registerComplaint.subtitle':
-      'Speak or type your complaint in English, Telugu (తెలుగు), or Hindi (हिन्दी). Our AI engine will extract details, classify the department, and prepare a formal grievance for your review.',
-    'registerComplaint.step1': '1. Speak or Describe Grievance',
-    'registerComplaint.step2': '2. AI Analysis & Citizen Review',
+      'Speak or type your complaint in English, Telugu (తెలుగు), or Hindi (हिन्दी), listen to it with Read Aloud, select the municipal department, and proceed to review.',
+    'registerComplaint.step1': '1. Speak & Enter Details',
+    'registerComplaint.step2': '2. Review & Confirm',
     'registerComplaint.step3': '3. Ticket Confirmation',
     'registerComplaint.sectionA.title': 'Section A — Citizen Information',
     'registerComplaint.sectionA.desc':
@@ -244,9 +244,9 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'registerComplaint.pinCode': 'PIN Code (Optional)',
     'registerComplaint.pinCodePlaceholder': 'e.g., 500072',
 
-    'registerComplaint.sectionC.title': 'Section C — Complaint Details',
+    'registerComplaint.sectionC.title': 'Section C — Complaint Details & Department Selection',
     'registerComplaint.sectionC.desc':
-      'Describe the civic problem in your own words. AI will automatically detect the category, department, and urgency.',
+      'Speak or type the civic problem in your own words, listen to it using Read Aloud, and select the department you want to complain to.',
     'registerComplaint.description': 'Complaint Description *',
     'registerComplaint.descriptionPlaceholder':
       'Describe the problem in English, తెలుగు, or हिन्दी. Mention where it is happening and how long it has existed...',
@@ -262,20 +262,20 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
       'Supporting Photo / Document Reference (Optional)',
 
     'registerComplaint.analyzeBtn':
-      'Analyze with AI & Proceed to Review →',
+      'Proceed to Review →',
     'registerComplaint.prefillNotice':
-      'AI has automatically prefilled fields mentioned in your complaint. Unknown fields were left blank—please fill any required (*) fields.',
+      'Please verify your selected department, complaint description, citizen details, and location before confirming submission.',
 
-    // AI Review Screen
+    // Review Screen
     'review.bannerNotice':
       'Please review the information before submitting. Your complaint will be registered only after your confirmation.',
-    'review.title': 'AI Grievance Analysis & Citizen Review',
-    'review.originalComplaint': 'Original Complaint Transcript',
-    'review.enhancedComplaint': 'Gemini AI Formal Enhanced Complaint',
-    'review.detectedLanguage': 'Detected Language',
-    'review.identifiedCategory': 'Identified Complaint Category',
-    'review.assignedDepartment': 'Assigned Municipal Department',
-    'review.detectedUrgency': 'Detected Urgency / Priority',
+    'review.title': 'Citizen Grievance Review & Confirmation',
+    'review.originalComplaint': 'Complaint Description',
+    'review.enhancedComplaint': 'Additional Notes / Summary',
+    'review.detectedLanguage': 'Complaint Language',
+    'review.identifiedCategory': 'Selected Complaint Category',
+    'review.assignedDepartment': 'Selected Municipal Department',
+    'review.detectedUrgency': 'Priority Level',
     'review.extractedCitizenInfo': 'Citizen Information (Editable)',
     'review.extractedLocationInfo': 'Location Information (Editable)',
     'review.missingMandatoryWarning':
@@ -570,12 +570,12 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'voiceModal.transcriptPlaceholder':
       'మీరు మాట్లాడిన ఫిర్యాదు ఇక్కడ కనిపిస్తుంది. మీరు నేరుగా టైప్ చేయవచ్చు లేదా సవరించవచ్చు...',
     'voiceModal.recordAgain': 'మళ్ళీ రికార్డ్ చేయండి',
-    'voiceModal.continueToAi': 'AI విశ్లేషణకు కొనసాగండి',
+    'voiceModal.continueToAi': 'ఫిర్యాదు ఫారమ్‌కు కొనసాగండి →',
     'voiceModal.cancel': 'రద్దు చేయండి',
     'voiceModal.emptyWarning':
-      'AI విశ్లేషణకు వెళ్లే ముందు దయచేసి మీ ఫిర్యాదును రికార్డ్ చేయండి లేదా టైప్ చేయండి.',
+      'కొనసాగే ముందు దయచేసి మీ ఫిర్యాదును రికార్డ్ చేయండి లేదా టైప్ చేయండి.',
     'voiceModal.tip':
-      'సూచన: మీ పేరు, గ్రామం/నగరం, కాలనీ/వీధి, దగ్గరి ల్యాండ్‌మార్క్ మరియు సమస్యను స్పష్టంగా చెప్పండి.',
+      'సూచన: మీ సమస్యను స్పష్టంగా మాట్లాడండి. అది ఫిర్యాదు వివరణ బాక్స్‌లో చేర్చబడుతుంది.',
 
     // Read Aloud (TTS)
     'tts.readAloud': 'వినండి (Read Aloud)',
@@ -588,9 +588,9 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     // Citizen-Friendly Complaint Registration Page
     'registerComplaint.title': 'ప్రజా ఫిర్యాదును నమోదు చేయండి',
     'registerComplaint.subtitle':
-      'తెలుగు, ఇంగ్లీష్ లేదా హిందీలో మాట్లాడి లేదా టైప్ చేసి మీ ఫిర్యాదును తెలపండి. AI వివరాలను గుర్తించి అధికారిక ఫిర్యాదును సిద్ధం చేస్తుంది.',
-    'registerComplaint.step1': '1. మాట్లాడండి లేదా వివరాలు నమోదు చేయండి',
-    'registerComplaint.step2': '2. AI విశ్లేషణ & సమీక్ష',
+      'తెలుగు, ఇంగ్లీష్ లేదా హిందీలో మాట్లాడి లేదా టైప్ చేసి మీ ఫిర్యాదును తెలపండి, వినండి (Read Aloud), సంబంధిత శాఖను ఎంచుకుని సమీక్షకు వెళ్ళండి.',
+    'registerComplaint.step1': '1. మాట్లాడండి & వివరాలు నమోదు చేయండి',
+    'registerComplaint.step2': '2. సమీక్ష & నిర్ధారణ',
     'registerComplaint.step3': '3. టికెట్ నిర్ధారణ',
     'registerComplaint.sectionA.title': 'విభాగం A — పౌరుని వివరాలు',
     'registerComplaint.sectionA.desc':
@@ -630,9 +630,9 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'registerComplaint.pinCode': 'పిన్ కోడ్ (ఐచ్ఛికం)',
     'registerComplaint.pinCodePlaceholder': 'ఉదా: 500072',
 
-    'registerComplaint.sectionC.title': 'విభాగం C — ఫిర్యాదు వివరాలు',
+    'registerComplaint.sectionC.title': 'విభాగం C — ఫిర్యాదు వివరాలు & శాఖ ఎంపిక',
     'registerComplaint.sectionC.desc':
-      'మీ సమస్యను మీ సొంత మాటలలో వివరించండి. AI స్వయంచాలకంగా సంబంధిత శాఖను మరియు తీవ్రతను గుర్తిస్తుంది.',
+      'మీ సమస్యను మాట్లాడండి లేదా టైప్ చేయండి, Read Aloud ద్వారా వినండి మరియు మీరు ఫిర్యాదు చేయాలనుకుంటున్న శాఖను ఎంచుకోండి.',
     'registerComplaint.description': 'ఫిర్యాదు వివరణ *',
     'registerComplaint.descriptionPlaceholder':
       'మీ సమస్యను తెలుగు, ఇంగ్లీష్ లేదా హిందీలో వివరించండి. సమస్య ఎక్కడ ఉందో మరియు ఎన్ని రోజులుగా ఉందో తెలపండి...',
@@ -647,19 +647,19 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'registerComplaint.attachment': 'ఫోటో / డాక్యుమెంట్ జతచేయండి (ఐచ్ఛికం)',
 
     'registerComplaint.analyzeBtn':
-      'AI తో విశ్లేషించి సమీక్షకు వెళ్ళండి →',
+      'సమీక్షకు వెళ్ళండి (Proceed to Review) →',
     'registerComplaint.prefillNotice':
-      'మీ ఫిర్యాదులో పేర్కొన్న వివరాలను AI స్వయంచాలకంగా నింపింది. ఖాళీగా ఉన్న తప్పనిసరి (*) వివరాలను దయచేసి పూర్తి చేయండి.',
+      'దయచేసి మీరు ఎంచుకున్న శాఖ, ఫిర్యాదు వివరణ, పౌరుని వివరాలు మరియు చిరునామాను నిర్ధారించండి.',
 
-    // AI Review Screen
+    // Review Screen
     'review.bannerNotice':
       'దయచేసి సమర్పించే ముందు సమాచారాన్ని సమీక్షించండి. మీ నిర్ధారణ తర్వాతే మీ ఫిర్యాదు నమోదు చేయబడుతుంది.',
-    'review.title': 'AI ఫిర్యాదు విశ్లేషణ & పౌర సమీక్ష',
-    'review.originalComplaint': 'మీరు ఇచ్చిన అసలు ఫిర్యాదు',
-    'review.enhancedComplaint': 'Gemini AI రూపొందించిన అధికారిక ఫిర్యాదు',
-    'review.detectedLanguage': 'గుర్తించిన భాష',
-    'review.identifiedCategory': 'గుర్తించిన ఫిర్యాదు వర్గం',
-    'review.assignedDepartment': 'కేటాయించిన మున్సిపల్ శాఖ',
+    'review.title': 'పౌర ఫిర్యాదు సమీక్ష & నిర్ధారణ',
+    'review.originalComplaint': 'ఫిర్యాదు వివరణ',
+    'review.enhancedComplaint': 'అదనపు వివరాలు',
+    'review.detectedLanguage': 'ఫిర్యాదు భాష',
+    'review.identifiedCategory': 'ఎంచుకున్న ఫిర్యాదు వర్గం',
+    'review.assignedDepartment': 'ఎంచుకున్న మున్సిపల్ శాఖ',
     'review.detectedUrgency': 'సమస్య తీవ్రత / ప్రాధాన్యత',
     'review.extractedCitizenInfo': 'పౌరుని వివరాలు (సవరించవచ్చు)',
     'review.extractedLocationInfo': 'చిరునామా / ప్రాంత వివరాలు (సవరించవచ్చు)',
@@ -954,12 +954,12 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'voiceModal.transcriptPlaceholder':
       'आपकी बोली गई शिकायत यहाँ दिखाई देगी। आप सीधे टाइप या संपादित भी कर सकते हैं...',
     'voiceModal.recordAgain': 'फिर से रिकॉर्ड करें',
-    'voiceModal.continueToAi': 'AI विश्लेषण के लिए आगे बढ़ें',
+    'voiceModal.continueToAi': 'शिकायत फ़ॉर्म पर आगे बढ़ें →',
     'voiceModal.cancel': 'रद्द करें',
     'voiceModal.emptyWarning':
-      'AI विश्लेषण पर आगे बढ़ने से पहले कृपया अपनी आवाज़ रिकॉर्ड करें या अपनी शिकायत टाइप करें।',
+      'आगे बढ़ने से पहले कृपया अपनी आवाज़ रिकॉर्ड करें या अपनी शिकायत टाइप करें।',
     'voiceModal.tip':
-      'सुझाव: अपना नाम, गाँव/शहर, कॉलोनी/गली, नज़दीकी लैंडमार्क और अपनी समस्या बताएं।',
+      'सुझाव: अपनी समस्या स्पष्ट रूप से बोलें। यह शिकायत विवरण बॉक्स में जुड़ जाएगी।',
 
     // Read Aloud (TTS)
     'tts.readAloud': 'सुनें (Read Aloud)',
@@ -972,9 +972,9 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     // Citizen-Friendly Complaint Registration Page
     'registerComplaint.title': 'नागरिक शिकायत दर्ज करें',
     'registerComplaint.subtitle':
-      'हिंदी, तेलुगु या अंग्रेजी में बोलकर या लिखकर अपनी शिकायत दर्ज करें। हमारा AI इंजन विवरण निकालेगा और आपकी समीक्षा के लिए औपचारिक शिकायत तैयार करेगा।',
-    'registerComplaint.step1': '1. बोलें या शिकायत का वर्णन करें',
-    'registerComplaint.step2': '2. AI विश्लेषण और नागरिक समीक्षा',
+      'हिंदी, तेलुगु या अंग्रेजी में बोलकर या लिखकर अपनी शिकायत दर्ज करें, Read Aloud से सुनें, संबंधित विभाग चुनें और समीक्षा के लिए आगे बढ़ें।',
+    'registerComplaint.step1': '1. बोलें और विवरण दर्ज करें',
+    'registerComplaint.step2': '2. समीक्षा और पुष्टि',
     'registerComplaint.step3': '3. टिकट पुष्टि',
     'registerComplaint.sectionA.title': 'अनुभाग A — नागरिक की जानकारी',
     'registerComplaint.sectionA.desc':
@@ -1014,9 +1014,9 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'registerComplaint.pinCode': 'पिन कोड (वैकल्पिक)',
     'registerComplaint.pinCodePlaceholder': 'उदा: 500072',
 
-    'registerComplaint.sectionC.title': 'अनुभाग C — शिकायत का विवरण',
+    'registerComplaint.sectionC.title': 'अनुभाग C — शिकायत का विवरण और विभाग चयन',
     'registerComplaint.sectionC.desc':
-      'अपने शब्दों में समस्या का वर्णन करें। AI स्वचालित रूप से श्रेणी, विभाग और प्राथमिकता की पहचान करेगा।',
+      'अपने शब्दों में समस्या बोलें या लिखें, Read Aloud से सुनें, और उस विभाग का चयन करें जिसमें आप शिकायत करना चाहते हैं।',
     'registerComplaint.description': 'शिकायत का विवरण *',
     'registerComplaint.descriptionPlaceholder':
       'हिंदी, तेलुगु या अंग्रेजी में समस्या का वर्णन करें। बताएं कि यह कहाँ हो रहा है और कब से है...',
@@ -1031,20 +1031,20 @@ export const TRANSLATIONS: Record<UILanguageCode, Record<string, string>> = {
     'registerComplaint.attachment': 'फोटो / दस्तावेज़ संदर्भ (वैकल्पिक)',
 
     'registerComplaint.analyzeBtn':
-      'AI से विश्लेषण करें और समीक्षा के लिए आगे बढ़ें →',
+      'समीक्षा के लिए आगे बढ़ें (Proceed to Review) →',
     'registerComplaint.prefillNotice':
-      'AI ने आपकी शिकायत में उल्लिखित विवरण स्वचालित रूप से भर दिए हैं। कृपया किसी भी आवश्यक (*) फ़ील्ड को पूरा करें।',
+      'कृपया सबमिट करने से पहले अपने चुने हुए विभाग, शिकायत विवरण, नागरिक जानकारी और स्थान की पुष्टि करें।',
 
-    // AI Review Screen
+    // Review Screen
     'review.bannerNotice':
       'कृपया सबमिट करने से पहले जानकारी की समीक्षा करें। आपकी पुष्टि के बाद ही आपकी शिकायत दर्ज की जाएगी।',
-    'review.title': 'AI शिकायत विश्लेषण और नागरिक समीक्षा',
-    'review.originalComplaint': 'मूल शिकायत प्रतिलिपि (Original Transcript)',
-    'review.enhancedComplaint': 'Gemini AI द्वारा तैयार औपचारिक शिकायत',
-    'review.detectedLanguage': 'पहचानी गई भाषा',
-    'review.identifiedCategory': 'पहचानी गई शिकायत श्रेणी',
-    'review.assignedDepartment': 'आवंटित नगर विभाग',
-    'review.detectedUrgency': 'पहचानी गई प्राथमिकता / गंभीरता',
+    'review.title': 'नागरिक शिकायत समीक्षा और पुष्टि',
+    'review.originalComplaint': 'शिकायत का विवरण',
+    'review.enhancedComplaint': 'अतिरिक्त विवरण',
+    'review.detectedLanguage': 'शिकायत की भाषा',
+    'review.identifiedCategory': 'चुनी गई शिकायत श्रेणी',
+    'review.assignedDepartment': 'चुना गया नगर विभाग',
+    'review.detectedUrgency': 'प्राथमिकता स्तर',
     'review.extractedCitizenInfo': 'नागरिक की जानकारी (संपादन योग्य)',
     'review.extractedLocationInfo': 'स्थान की जानकारी (संपादन योग्य)',
     'review.missingMandatoryWarning':

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   AlertCircle,
   ArrowRight,
@@ -68,6 +68,10 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [usingBrowserFallback, setUsingBrowserFallback] = useState(false);
 
+  const latestCompanionSpeechRef = useRef<string>('');
+  const stopAudioRecorderRef = useRef<(() => void) | null>(null);
+  const isAudioRecordingRef = useRef<boolean>(false);
+
   const selectedMetadata = getSpeechLanguageMetadata(selectedLang);
   const browserLocale =
     selectedMetadata.browserLocale ||
@@ -75,9 +79,26 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
 
   const browserSpeech = useSpeechRecognition({
     locale: browserLocale,
+    silentCompanionMode: !usingBrowserFallback,
+    onSessionComplete: (finalBrowserText) => {
+      if (finalBrowserText && finalBrowserText.trim()) {
+        latestCompanionSpeechRef.current = finalBrowserText.trim();
+        setTranscript(finalBrowserText.trim());
+      }
+      if (isAudioRecordingRef.current && stopAudioRecorderRef.current) {
+        stopAudioRecorderRef.current();
+      }
+    },
   });
 
   const handleRecordedAudioComplete = async (payload: RecordedAudioPayload) => {
+    const companionSnapshot =
+      browserSpeech.getLatestTranscriptSnapshot() ||
+      latestCompanionSpeechRef.current;
+    if (browserSpeech.isListening) {
+      browserSpeech.stopListening();
+    }
+
     setErrorMessage(null);
     setIsTranscribing(true);
     setStatusMessage(t('voiceModal.transcribing'));
@@ -104,6 +125,15 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
         return;
       }
 
+      if (companionSnapshot && companionSnapshot.trim()) {
+        setTranscript(companionSnapshot.trim());
+        setDetectedLang(selectedMetadata.coreFormLanguage || uiLanguage);
+        setStatusMessage(
+          'Voice captured via Browser Speech Recognition (Automatic Fallback).'
+        );
+        return;
+      }
+
       if (response.fallback_recommended && browserSpeech.isSupported) {
         setStatusMessage(
           'Switching to Browser Speech Recognition fallback — please speak now...'
@@ -120,6 +150,14 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
       );
     } catch {
       setIsTranscribing(false);
+      if (companionSnapshot && companionSnapshot.trim()) {
+        setTranscript(companionSnapshot.trim());
+        setDetectedLang(selectedMetadata.coreFormLanguage || uiLanguage);
+        setStatusMessage(
+          'Voice captured via Browser Speech Recognition (Automatic Fallback).'
+        );
+        return;
+      }
       setErrorMessage(
         'Network error while transcribing audio. Please record again or type below.'
       );
@@ -132,12 +170,25 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
     onRecorderError: (msg) => setErrorMessage(msg),
   });
 
-  // Sync live browser fallback transcript when active
   useEffect(() => {
-    if (usingBrowserFallback && browserSpeech.combinedTranscript) {
+    stopAudioRecorderRef.current = audioRecorder.stopAudioRecording;
+    isAudioRecordingRef.current = audioRecorder.isRecording;
+  }, [audioRecorder.stopAudioRecording, audioRecorder.isRecording]);
+
+  // Sync live browser transcript while recording
+  useEffect(() => {
+    if (
+      (usingBrowserFallback || audioRecorder.isRecording) &&
+      browserSpeech.combinedTranscript
+    ) {
+      latestCompanionSpeechRef.current = browserSpeech.combinedTranscript;
       setTranscript(browserSpeech.combinedTranscript);
     }
-  }, [usingBrowserFallback, browserSpeech.combinedTranscript]);
+  }, [
+    usingBrowserFallback,
+    audioRecorder.isRecording,
+    browserSpeech.combinedTranscript,
+  ]);
 
   // Reset modal state cleanly when opened or closed
   useEffect(() => {
@@ -161,10 +212,17 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
     setErrorMessage(null);
     setStatusMessage(null);
     setUsingBrowserFallback(false);
+    latestCompanionSpeechRef.current = '';
+    browserSpeech.resetTranscript();
 
     if (audioRecorder.isRecorderSupported) {
-      await audioRecorder.startAudioRecording();
-      return;
+      const started = await audioRecorder.startAudioRecording();
+      if (started) {
+        if (browserSpeech.isSupported) {
+          browserSpeech.startListening(browserLocale);
+        }
+        return;
+      }
     }
 
     if (browserSpeech.isSupported) {
@@ -192,6 +250,9 @@ export const VoiceComplaintModal: React.FC<VoiceComplaintModalProps> = ({
 
     if (audioRecorder.isRecording) {
       audioRecorder.stopAudioRecording();
+    }
+    if (browserSpeech.isListening) {
+      browserSpeech.stopListening();
     }
   };
 

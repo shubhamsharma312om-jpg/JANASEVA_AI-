@@ -41,6 +41,8 @@ interface VoiceComplaintInputProps {
   onLanguageChange: (lang: LanguageCode) => void;
   currentDescription: string;
   onUpdateDescription: (nextDescription: string) => void;
+  onTranscriptReadyForAnalysis?: (fullDescriptionText: string) => void;
+  isAnalyzingDescription?: boolean;
 }
 
 type ActiveSpeechEngine = 'sarvam' | 'browser';
@@ -58,6 +60,8 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
   onLanguageChange,
   currentDescription,
   onUpdateDescription,
+  onTranscriptReadyForAnalysis,
+  isAnalyzingDescription = false,
 }) => {
   // Selected Sarvam speech language code (defaults to matching the form's selectedLanguage)
   const [speechLangCode, setSpeechLangCode] = useState<SarvamLanguageCode>(
@@ -86,8 +90,11 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
 
   // Stores the complaint description text that existed BEFORE the current voice session started
   const baseDescriptionRef = useRef<string>(currentDescription);
+  const latestLiveTranscriptRef = useRef<string>('');
   const reviewTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isPureBrowserSessionRef = useRef<boolean>(false);
+  const stopAudioRecordingRef = useRef<(() => void) | null>(null);
+  const isAudioRecordingRef = useRef<boolean>(false);
 
   const [reviewOpen, setReviewOpen] = useState<boolean>(false);
   const [reviewDraft, setReviewDraft] = useState<string>('');
@@ -125,7 +132,8 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
   const openReviewWithTranscript = (
     transcriptText: string,
     engineUsed: ActiveSpeechEngine,
-    detectedCode?: string
+    detectedCode?: string,
+    triggerAutoAnalysis = true
   ) => {
     const cleanText = transcriptText.trim();
     if (!cleanText) return;
@@ -144,6 +152,11 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
     // Insert the recognized text into the complaint description field without duplicating prior text
     const updated = joinWithSingleSpace(baseDescriptionRef.current, cleanText);
     onUpdateDescription(updated);
+
+    // Automatically trigger AI Grievance Analysis on the complete complaint description text
+    if (triggerAutoAnalysis && onTranscriptReadyForAnalysis) {
+      onTranscriptReadyForAnalysis(updated);
+    }
   };
 
   // Secondary Fallback Engine: Browser Web Speech API
@@ -162,13 +175,20 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
     locale: currentLangMeta.browserLocale || 'en-IN',
     silentCompanionMode: !isPureBrowserSessionRef.current,
     onSessionComplete: (finalBrowserText) => {
-      // If we are running a pure Browser fallback session, complete directly into Review
+      if (finalBrowserText && finalBrowserText.trim()) {
+        latestLiveTranscriptRef.current = finalBrowserText.trim();
+      }
+      // If we are running a pure Browser fallback session, complete directly into Review + AI Analysis
       if (isPureBrowserSessionRef.current) {
         openReviewWithTranscript(
           finalBrowserText,
           'browser',
-          currentLangMeta.browserLocale || speechLangCode
+          currentLangMeta.browserLocale || speechLangCode,
+          true
         );
+      } else if (isAudioRecordingRef.current && stopAudioRecordingRef.current) {
+        // Citizen finished speaking — stop MediaRecorder automatically so transcription & AI analysis run immediately!
+        stopAudioRecordingRef.current();
       }
     },
   });
@@ -177,6 +197,10 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
   const handleAudioRecordingComplete = async (
     payload: RecordedAudioPayload
   ) => {
+    // Capture any companion browser transcript BEFORE stopping browser recognition
+    const preStopBrowserSnapshot =
+      getLatestTranscriptSnapshot() || latestLiveTranscriptRef.current;
+
     // Stop companion browser recognition if it was running alongside MediaRecorder
     stopBrowserListening();
 
@@ -209,7 +233,8 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
       openReviewWithTranscript(
         sarvamResult.transcript,
         'sarvam',
-        detected
+        detected,
+        true
       );
       return;
     }
@@ -217,20 +242,24 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
     // 2. PRIMARY ENGINE FAILURE -> AUTOMATIC FALLBACK TO BROWSER WEB SPEECH API
     setActiveEngine('browser');
 
-    const companionTranscript = getLatestTranscriptSnapshot();
+    const companionTranscript =
+      getLatestTranscriptSnapshot() ||
+      preStopBrowserSnapshot ||
+      latestLiveTranscriptRef.current;
 
     // Case A: Companion Browser Web Speech API already captured the citizen's speech during this recording!
-    if (companionTranscript) {
+    if (companionTranscript && companionTranscript.trim()) {
       setFallbackNotice(
         `${
           sarvamResult.error_message ||
           'Sarvam AI Saaras v4 was unavailable.'
-        } Automatically used Browser Speech Recognition so none of your spoken words were lost.`
+        } Automatically used Browser Speech Recognition and analyzed your complaint.`
       );
       openReviewWithTranscript(
         companionTranscript,
         'browser',
-        currentLangMeta.browserLocale || speechLangCode
+        currentLangMeta.browserLocale || speechLangCode,
+        true
       );
       return;
     }
@@ -244,7 +273,6 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
           'Sarvam AI auto-detection is currently unavailable.'
         } Browser Speech Recognition requires a specific speaking language. Please select your language below to speak with Browser Speech Recognition.`
       );
-      onUpdateDescription(baseDescriptionRef.current);
       return;
     }
 
@@ -255,7 +283,6 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
           sarvamResult.error_message || 'currently unavailable'
         }) and is not supported by your browser's built-in speech engine. Please select English, తెలుగు, हिन्दी, or another browser-supported language, or type your complaint manually.`
       );
-      onUpdateDescription(baseDescriptionRef.current);
       return;
     }
 
@@ -265,7 +292,7 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
         `${
           sarvamResult.error_message ||
           'Primary Sarvam AI engine was unavailable.'
-        } Switched to Browser Speech Recognition (${currentLangMeta.nativeName}). Please click the microphone or "Speak with Browser Engine" to dictate.`
+        } Switched to Browser Speech Recognition (${currentLangMeta.nativeName}). Please click the microphone to dictate.`
       );
     } else {
       setUiErrorMessage(
@@ -273,7 +300,6 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
           "Sorry, we couldn't recognize your speech. Please try again or type your complaint manually."
       );
     }
-    onUpdateDescription(baseDescriptionRef.current);
   };
 
   const {
@@ -306,11 +332,17 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
     },
   });
 
+  useEffect(() => {
+    stopAudioRecordingRef.current = stopAudioRecording;
+    isAudioRecordingRef.current = isAudioRecording;
+  }, [stopAudioRecording, isAudioRecording]);
+
   const isAnyRecordingActive = isAudioRecording || isBrowserListening;
 
   // Live update the complaint description textarea while the citizen is actively speaking
   useEffect(() => {
     if (isAnyRecordingActive && browserCombinedTranscript) {
+      latestLiveTranscriptRef.current = browserCombinedTranscript;
       const liveMerged = joinWithSingleSpace(
         baseDescriptionRef.current,
         browserCombinedTranscript
@@ -352,6 +384,7 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
     }
 
     baseDescriptionRef.current = currentDescription;
+    latestLiveTranscriptRef.current = '';
     setReviewOpen(false);
     setReviewDraft('');
     setIsEditingReview(false);
@@ -372,6 +405,7 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
 
     // Snapshot the current description BEFORE starting this new recording session
     baseDescriptionRef.current = currentDescription;
+    latestLiveTranscriptRef.current = '';
     setReviewOpen(false);
     setReviewDraft('');
     setIsEditingReview(false);
@@ -382,15 +416,14 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
       setActiveEngine('sarvam');
       const started = await startAudioRecording();
       if (started) {
-        // Also start companion Browser Speech Recognition when an explicit browser-supported language is chosen
-        // so the citizen sees live interim words AND has a zero-loss instant fallback if Sarvam API fails!
-        if (
-          isBrowserSpeechSupported &&
-          speechLangCode !== 'unknown' &&
-          currentLangMeta.browserFallbackSupported &&
-          currentLangMeta.browserLocale
-        ) {
-          startBrowserListening(currentLangMeta.browserLocale);
+        // Always start companion Browser Speech Recognition so the citizen sees live interim words
+        // AND has a zero-loss instant fallback if Sarvam API fails!
+        const companionLocale =
+          currentLangMeta.browserLocale ||
+          CORE_LANG_TO_SARVAM_CODE[selectedLanguage] ||
+          'en-IN';
+        if (isBrowserSpeechSupported && companionLocale) {
+          startBrowserListening(companionLocale);
         }
         return;
       }
@@ -458,7 +491,7 @@ export const VoiceComplaintInput: React.FC<VoiceComplaintInputProps> = ({
         activeEngine === 'sarvam'
           ? 'Powered by Sarvam AI'
           : 'Browser Speech Recognition'
-      }) confirmed and inserted into your complaint description below.`
+      }) added to Complaint Description. Use Read Aloud to listen and select your department below.`
     );
   };
 

@@ -338,7 +338,7 @@ class InformationExtractor:
 
         # 3. Hinglish / Telugu-English explicit name patterns: "mera naam Rahul Verma hai", "naa peru Venkat Rao"
         rom_match = re.search(
-            r"\b(?:mera\s+naam|naa?\s+peru)\s+([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){0,2}?)(?:\s+hai|\s+andi|\b)",
+            r"\b(?:mera\s+naam|naa?\s+peru)\s+([a-zA-Z]+(?:\s+[a-zA-Z]+){0,2}?)(?=\s*(?:,|\.|\bhai\b|\bandi\b|\band\b|\bi\b|\bwe\b|\bin\b|\bfrom\b|\blive\b|\bliving\b|\bhamare\b|\bmaa\b|\bwater\b|\broad\b|\bgarbage\b|\belectric|\bdrain|\bstreet|\bmobile\b|$))",
             text,
             flags=re.IGNORECASE,
         )
@@ -348,16 +348,17 @@ class InformationExtractor:
             if words and not any(w in NON_NAME_WORDS for w in words):
                 return " ".join(w.capitalize() for w in candidate.split())
 
-        # 4. English explicit name patterns: "My name is Ramesh Kumar", "I am Ananya Rao,"
+        # 4. English explicit name patterns (supports both capitalized and lowercase unpunctuated speech-to-text)
         en_match = re.search(
-            r"\b(?:[Mm]y\s+name\s+is|[Ii]\s+am|[Tt]his\s+is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})(?=\s*(?:,|\.|\band\b|\bfrom\b|\bresiding\b|\bliving\b|\bcalling\b|\breporting\b|\bpresident\b|\bsecretary\b|$))",
+            r"\b(?:my\s+name\s+is|i\s+am|this\s+is)\s+([a-zA-Z]{2,20}(?:\s+[a-zA-Z]{2,20}){0,2}?)(?=\s*(?:,|\.|\band\b|\bi\b|\bwe\b|\bin\b|\bat\b|\bfrom\b|\blive\b|\bliving\b|\bresiding\b|\bresident\b|\bstaying\b|\bcalling\b|\bspeaking\b|\breporting\b|\bcomplaining\b|\bpresident\b|\bsecretary\b|\bmy\b|\bour\b|\bthere\b|\bmobile\b|\bphone\b|\bcontact\b|\bwater\b|\broad\b|\bgarbage\b|\belectric|\bdrain|\bstreet|$))",
             text,
+            flags=re.IGNORECASE,
         )
         if en_match:
             candidate = en_match.group(1).strip()
             words = [w.lower() for w in candidate.split()]
             if words and not any(w in NON_NAME_WORDS for w in words):
-                return candidate
+                return " ".join(w.capitalize() for w in candidate.split())
 
         return None
 
@@ -434,19 +435,19 @@ class InformationExtractor:
 
         # 2. Village (explicit "<Name> village" / "<Name> గ్రామం" / "<Name> गांव")
         village_match = re.search(
-            r"\b([A-Z][a-zA-Z]+)\s+village\b|([^\s,\.]+)\s+గ్రామం|ग्राम\s+([^\s,\.]+)|([^\s,\.]+)\s+(?:गाँव|गांव)",
+            r"\b([A-Za-z][a-zA-Z]+)\s+village\b|([^\s,\.]+)\s+గ్రామం|ग्राम\s+([^\s,\.]+)|([^\s,\.]+)\s+(?:गाँव|गांव)",
             text,
             flags=re.IGNORECASE,
         )
         if village_match:
             raw_v = next((g for g in village_match.groups() if g), None)
-            if raw_v and raw_v.lower() not in ("our", "this", "the", "my", "in", "a"):
+            if raw_v and raw_v.lower() not in ("our", "this", "the", "my", "in", "a", "near", "from"):
                 clean_v = raw_v.strip()
                 loc.village = clean_v[0].upper() + clean_v[1:] if clean_v.isascii() else clean_v
 
         # 3. Mandal / Tehsil
         mandal_match = re.search(
-            r"\b([A-Z][a-zA-Z]+)\s+(?:Mandal|Tahsil|Tehsil)\b|([^\s,\.]+)\s+మండలం|([^\s,\.]+)\s+(?:मंडल|तहसील)",
+            r"\b([A-Za-z][a-zA-Z]+)\s+(?:Mandal|Tahsil|Tehsil)\b|([^\s,\.]+)\s+మండలం|([^\s,\.]+)\s+(?:मंडल|तहसील)",
             text,
             flags=re.IGNORECASE,
         )
@@ -458,7 +459,7 @@ class InformationExtractor:
 
         # 4. Town
         town_match = re.search(
-            r"\b([A-Z][a-zA-Z]+)\s+town\b|([^\s,\.]+)\s+పట్టణం",
+            r"\b([A-Za-z][a-zA-Z]+)\s+town\b|([^\s,\.]+)\s+పట్టణం",
             text,
             flags=re.IGNORECASE,
         )
@@ -468,7 +469,7 @@ class InformationExtractor:
                 clean_t = raw_t.strip()
                 loc.town = clean_t[0].upper() + clean_t[1:] if clean_t.isascii() else clean_t
 
-        # 5. City (Gazetteer + contextual "resident of <City>" / "in <City> city")
+        # 5. City (Gazetteer + contextual "resident of <City>" / "i live in <City>" / "in <City> city")
         for token, canonical_city in KNOWN_CITIES:
             if token in lower_text or token in text:
                 # Don't duplicate into city if it was only mentioned as "<Name> district"
@@ -479,13 +480,14 @@ class InformationExtractor:
 
         if not loc.city and not loc.village:
             res_match = re.search(
-                r"\b(?:resident\s+of|living\s+in|residing\s+in|citizen\s+of)\s+([A-Z][a-zA-Z]{2,25})\b",
+                r"\b(?:resident\s+of|living\s+in|residing\s+in|citizen\s+of|i\s+live\s+in|we\s+live\s+in|i\s+stay\s+in)\s+([a-zA-Z]{3,25})(?=\s*(?:,|\.|\bnear\b|\bopposite\b|\bthere\b|\bwhere\b|\band\b|\bin\b|\bwater\b|\broad\b|\bgarbage\b|\belectric|\bdrain|\bstreet|\bsince\b|\bfor\b|$))",
                 text,
+                flags=re.IGNORECASE,
             )
             if res_match:
                 cand_city = res_match.group(1).strip()
-                if not is_generic_location_phrase(cand_city):
-                    loc.city = cand_city
+                if not is_generic_location_phrase(cand_city) and cand_city.lower() not in ("our", "this", "the", "my", "here"):
+                    loc.city = cand_city.capitalize()
 
         # 6. Ward Number
         ward_match = re.search(
@@ -509,27 +511,31 @@ class InformationExtractor:
 
         if not loc.area:
             colony_match = re.search(
-                r"\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z0-9]+){0,2}\s+(?:Colony|Nagar|Basti|Enclave|Layout|Phase\s+\d+|Sector\s+\d+|Hills|Gardens))\b",
+                r"\b([a-zA-Z]{2,20}(?:\s+[a-zA-Z0-9]{1,20}){0,2}\s+(?:Colony|Nagar|Basti|Enclave|Layout|Phase\s+\d+|Sector\s+\d+|Hills|Gardens|Extension|Vihar|Puram|Peta|Guda))\b",
                 text,
+                flags=re.IGNORECASE,
             )
             if colony_match:
                 candidate_area = colony_match.group(1).strip()
+                # Strip leading prepositions if captured
+                candidate_area = re.sub(r"^(?:in|at|from|near|of)\s+", "", candidate_area, flags=re.IGNORECASE).strip()
                 if not is_generic_location_phrase(candidate_area):
-                    loc.area = candidate_area
+                    loc.area = " ".join(w.capitalize() if w.isascii() else w for w in candidate_area.split())
 
         # 9. Street / Road (strictly filtered against generic phrases like "our street" or "supply and the main road")
         street_patterns = [
-            r"\b((?:Road|Street|Lane|Gali)\s*(?:No\.?|Number)\s*\d+[A-Za-z]?)\b",
-            r"\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,1}\s+(?:Main\s+Road|Road|Street|Marg|Cross\s+Roads))\b",
-            r"(రోడ్\s*నంబర్\s*\d+)",
-            r"(रोड\s*नंबर\s*\d+|गली\s*नंबर\s*\d+)",
+            (r"\b((?:Road|Street|Lane|Gali)\s*(?:No\.?|Number)\s*\d+[A-Za-z]?)\b", re.IGNORECASE),
+            (r"\b([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,1}\s+(?:Main\s+Road|Road|Street|Marg|Cross\s+Roads))\b", 0),
+            (r"\b(?:in|at|on|along)\s+([a-zA-Z]{3,20}\s+(?:Main\s+Road|Road|Street|Marg|Lane))\b", re.IGNORECASE),
+            (r"(రోడ్\s*నంబర్\s*\d+)", 0),
+            (r"(रोड\s*नंबर\s*\d+|गली\s*नंबर\s*\d+)", 0),
         ]
-        for pat in street_patterns:
-            sm = re.search(pat, text)
+        for pat, flg in street_patterns:
+            sm = re.search(pat, text, flags=flg)
             if sm:
                 candidate_st = sm.group(1).strip()
                 if not is_generic_location_phrase(candidate_st):
-                    loc.street = candidate_st
+                    loc.street = " ".join(w.capitalize() if w.isascii() else w for w in candidate_st.split())
                     break
 
         # 10. House / Plot / Flat Number
@@ -572,9 +578,9 @@ class InformationExtractor:
                 return cand
 
         # 2. English / Hinglish prepositional landmarks:
-        # Supports both capitalized ("Near KMIT college", "near Metro Pillar 1728") and institutional ("Near the government school")
+        # Supports both punctuated text and continuous unpunctuated speech-to-text
         en_lm = re.search(
-            r"\b(near|opposite|beside|behind|in\s+front\s+of|next\s+to|adjacent\s+to)\s+((?:the\s+)?[A-Za-z0-9][A-Za-z0-9\s\-\.]{2,45}?)(?=\s*(?:,|\.|\bwhere\b|\bcausing\b|\band\b|\bsince\b|\bfor\b|\bis\b|\bare\b|\bhave\b|\bhas\b|\bin\b|\bfrom\b|$))",
+            r"\b(near|opposite|beside|behind|in\s+front\s+of|next\s+to|adjacent\s+to)\s+((?:the\s+)?[A-Za-z0-9][A-Za-z0-9\s\-\.]{2,42}?)(?=\s*(?:,|\.|\bwhere\b|\bcausing\b|\band\b|\bsince\b|\bfor\b|\bis\b|\bare\b|\bwas\b|\bwere\b|\bhave\b|\bhas\b|\bin\b|\bfrom\b|\bthere\b|\bwater\b|\bno\s+water\b|\bno\s+drinking\b|\broad\b|\bpothole|\bgarbage\b|\btrash\b|\belectric|\bpower\b|\bcurrent\b|\bstreet\s*light|\bdrain|\bsewage\b|\bproblem\b|\bissue\b|\boverflow|$))",
             clean_text,
             flags=re.IGNORECASE,
         )
@@ -703,7 +709,7 @@ class InformationExtractor:
             missing.append("citizen_name")
         if not location.has_settlement():
             missing.append("village_or_city")
-        if not location.has_locality_or_street():
+        if not location.has_locality_or_street() and not bool(location.landmark):
             missing.append("area_or_street")
         if not location.landmark:
             missing.append("nearest_landmark")

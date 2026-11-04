@@ -99,9 +99,34 @@ class ComplaintEnhancer:
             return summary, core_text
 
         # English, Hinglish ('hi-en'), Telugu-English ('te-en'), or other languages
+        lower_core = core_text.lower()
+        specific_phrase: Optional[str] = None
+        phrase_candidates = [
+            ("no drinking water supply", "No drinking water supply"),
+            ("no drinking water", "No drinking water supply"),
+            ("no water supply", "No water supply"),
+            ("paani nahi aa raha", "No water supply"),
+            ("water has not come", "Water supply disruption"),
+            ("drainage overflow", "Drainage overflow problem"),
+            ("sewage overflow", "Sewage overflow problem"),
+            ("no electricity", "No electricity / power outage"),
+            ("live electric wire", "Live electric wire fallen on road"),
+            ("street light", "Streetlight not working"),
+            ("streetlight", "Streetlight not working"),
+            ("potholes", "Road potholes hazard"),
+            ("garbage", "Uncollected garbage"),
+        ]
+        for needle, label in phrase_candidates:
+            if needle in lower_core:
+                specific_phrase = label
+                break
+
         all_cats = [department_category] + (secondary_categories or [])
         cat_label = " & ".join(all_cats)
-        summary = f"{cat_label} grievance"
+        if specific_phrase and not secondary_categories:
+            summary = f"{specific_phrase} ({cat_label})"
+        else:
+            summary = f"{cat_label} grievance"
         if loc_str:
             summary += f" at {loc_str}"
         if location.landmark and location.landmark not in loc_str:

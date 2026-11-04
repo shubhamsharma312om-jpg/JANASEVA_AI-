@@ -13,8 +13,12 @@ const ROOT_DIR = process.cwd();
 const BACKEND_DIR = path.join(ROOT_DIR, 'backend');
 const DB_INIT_SCRIPT = path.join(BACKEND_DIR, 'app', 'database', 'init_db.py');
 
-const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 18000);
-const GEMINI_MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES || 1);
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 7000);
+const GEMINI_MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES || 0);
+const GEMINI_QUOTA_COOLDOWN_MS = 45000;
+
+let geminiQuotaCooldownUntil = 0;
+let lastQuotaErrorSummary: string | null = null;
 
 // In-flight deduplication map for identical concurrent analysis requests
 const inFlightAnalysisRequests = new Map<string, Promise<any>>();
@@ -41,16 +45,27 @@ interface GeminiAttemptResult {
   };
 }
 
-function isPermanentConfigError(err: any): boolean {
-  const status = err?.status || err?.code;
+function isNonRetryableOrQuotaError(err: any): boolean {
+  const status = Number(err?.status || err?.code || 0);
   const msg = String(err?.message || '').toUpperCase();
-  if (status === 400 || status === 401 || status === 403 || status === 404) {
+  if (
+    status === 400 ||
+    status === 401 ||
+    status === 403 ||
+    status === 404 ||
+    status === 429 ||
+    status === 503
+  ) {
     return true;
   }
   if (
     msg.includes('API_KEY_INVALID') ||
     msg.includes('PERMISSION_DENIED') ||
-    msg.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+    msg.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT') ||
+    msg.includes('RESOURCE_EXHAUSTED') ||
+    msg.includes('EXCEEDED YOUR CURRENT QUOTA') ||
+    msg.includes('UNAVAILABLE') ||
+    msg.includes('HIGH DEMAND')
   ) {
     return true;
   }
@@ -77,10 +92,31 @@ async function tryGeminiGrievanceAnalysis(
     };
   }
 
+  // Fast circuit-breaker failover if Gemini returned 429/503 within the last 45s
+  if (Date.now() < geminiQuotaCooldownUntil) {
+    return {
+      candidate: null,
+      provenance: {
+        gemini_attempted: true,
+        gemini_succeeded: false,
+        latency_ms: 0,
+        model: modelName,
+        error_code: 429,
+        error_message:
+          lastQuotaErrorSummary ||
+          'Gemini quota cooldown active; using fast Python intelligence fallback.',
+      },
+    };
+  }
+
   const startTime = Date.now();
   const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
     httpOptions: {
+      timeout: Math.max(12000, GEMINI_TIMEOUT_MS),
+      retryOptions: {
+        attempts: 1,
+      },
       headers: {
         'User-Agent': 'aistudio-build',
       },
@@ -129,11 +165,17 @@ async function tryGeminiGrievanceAnalysis(
   const maxAttempts = Math.max(1, 1 + GEMINI_MAX_RETRIES);
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const abortController = new AbortController();
+    const timer = setTimeout(() => {
+      abortController.abort();
+    }, GEMINI_TIMEOUT_MS);
+
     try {
-      const geminiPromise = ai.models.generateContent({
+      const response = await ai.models.generateContent({
         model: modelName,
         contents: userPrompt,
         config: {
+          abortSignal: abortController.signal,
           systemInstruction,
           thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
           responseMimeType: 'application/json',
@@ -191,20 +233,13 @@ async function tryGeminiGrievanceAnalysis(
         },
       });
 
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          const timeoutErr: any = new Error(
-            `Gemini API request timed out after ${GEMINI_TIMEOUT_MS}ms`
-          );
-          timeoutErr.code = 'GEMINI_TIMEOUT';
-          reject(timeoutErr);
-        }, GEMINI_TIMEOUT_MS);
-      });
-
-      const response = await Promise.race([geminiPromise, timeoutPromise]);
-      const text = (response.text ?? '').trim();
+      clearTimeout(timer);
+      let text = (response.text ?? '').trim();
       if (!text) {
         throw new Error('Empty response text from Gemini model');
+      }
+      if (text.startsWith('```')) {
+        text = text.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
       }
       const parsed = JSON.parse(text);
       return {
@@ -219,17 +254,25 @@ async function tryGeminiGrievanceAnalysis(
         },
       };
     } catch (err: any) {
+      clearTimeout(timer);
       lastError = err;
       const errCode = err?.status || err?.code || 'GEMINI_ERROR';
       const errMsg = String(err?.message || 'Gemini analysis error').slice(0, 220);
       console.warn(
         `[JANASEVA AI] Gemini attempt ${attempt}/${maxAttempts} failed (${errCode}): ${errMsg}`
       );
-      if (isPermanentConfigError(err) || attempt >= maxAttempts) {
+      if (
+        Number(errCode) === 429 ||
+        errMsg.toUpperCase().includes('RESOURCE_EXHAUSTED') ||
+        errMsg.toUpperCase().includes('EXCEEDED YOUR CURRENT QUOTA')
+      ) {
+        geminiQuotaCooldownUntil = Date.now() + GEMINI_QUOTA_COOLDOWN_MS;
+        lastQuotaErrorSummary = errMsg;
+      }
+      if (isNonRetryableOrQuotaError(err) || attempt >= maxAttempts) {
         break;
       }
-      // Exponential backoff before retry
-      await new Promise((r) => setTimeout(r, 1200 * attempt));
+      await new Promise((r) => setTimeout(r, 600));
     }
   }
 
@@ -250,16 +293,36 @@ async function tryGeminiGrievanceAnalysis(
 }
 
 /**
- * Execute a Python snippet with optional JSON stdin payload against `backend/janaseva.db`
+ * Execute a Python snippet with optional JSON payload against `backend/`
  */
 async function runPythonWithPayload(pythonSnippet: string, payload: any = {}): Promise<any> {
   const payloadJson = JSON.stringify(payload);
   const { stdout } = await execFileAsync(
     'python3',
     ['-c', pythonSnippet, payloadJson],
-    { cwd: BACKEND_DIR }
+    {
+      cwd: BACKEND_DIR,
+      maxBuffer: 10 * 1024 * 1024,
+      env: {
+        ...process.env,
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONPATH: BACKEND_DIR,
+      },
+    }
   );
-  return JSON.parse(stdout.trim());
+  const trimmed = stdout.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const lines = trimmed
+      .split('\n')
+      .map((l) => l.trim())
+      .filter((l) => l.startsWith('{') || l.startsWith('['));
+    if (lines.length > 0) {
+      return JSON.parse(lines[lines.length - 1]);
+    }
+    throw new Error('Failed to parse JSON output from Python intelligence engine');
+  }
 }
 
 async function ensureDatabaseAndDemoSeed() {
@@ -1122,28 +1185,51 @@ result = grievance_ai_pipeline.analyze_grievance(
 )
 print(json.dumps(result))
 `;
-            return await runPythonWithPayload(pyScript, {
-              transcript,
-              preferred_language: preferredLanguage || null,
-              llm_candidate: geminiAttempt.candidate,
-              llm_provenance: geminiAttempt.provenance,
-              conversation_context: conversationContext,
-            });
+            try {
+              return await runPythonWithPayload(pyScript, {
+                transcript,
+                preferred_language: preferredLanguage || null,
+                llm_candidate: geminiAttempt.candidate,
+                llm_provenance: geminiAttempt.provenance,
+                conversation_context: conversationContext,
+              });
+            } catch (pyErr: any) {
+              console.error(
+                '[JANASEVA AI] Primary Python pipeline execution error, retrying with pure Python fallback:',
+                pyErr?.message || pyErr
+              );
+              return await runPythonWithPayload(pyScript, {
+                transcript,
+                preferred_language: preferredLanguage || null,
+                llm_candidate: null,
+                llm_provenance: {
+                  ...geminiAttempt.provenance,
+                  gemini_succeeded: false,
+                },
+                conversation_context: conversationContext,
+              });
+            }
           })();
           inFlightAnalysisRequests.set(dedupeKey, taskPromise);
         }
 
         try {
           const analyzed = await taskPromise;
+          console.log(
+            `[JANASEVA AI] Analyzed grievance: source=${analyzed?.processing_source}, intent=${analyzed?.intent_type}, category=${analyzed?.department_category}, lang=${analyzed?.detected_language}`
+          );
           res.status(200).json(analyzed);
         } finally {
           inFlightAnalysisRequests.delete(dedupeKey);
         }
       } catch (error: any) {
+        console.error(
+          '[JANASEVA AI] Fatal error in POST /api/ai/analyze-grievance:',
+          error
+        );
         res.status(500).json({
           detail:
-            error?.message ||
-            'Failed to analyze grievance transcript. Please review and try again.',
+            'Unable to analyze the grievance right now. Please check your description and click Retry Analysis.',
         });
       }
     }

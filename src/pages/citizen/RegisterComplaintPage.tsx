@@ -21,7 +21,6 @@ import {
 import { useApp } from '../../context/AppContext';
 import { useLanguage } from '../../i18n/LanguageContext';
 import {
-  GrievanceAIAnalysisResult,
   GrievanceCategory,
   GrievanceRecord,
   LanguageCode,
@@ -34,21 +33,21 @@ import {
 import { getVisualAssetForDepartmentOrCategory } from '../../utils/departmentAssets';
 import { VoiceComplaintInput } from '../../components/citizen/VoiceComplaintInput';
 import { ReadAloudButton } from '../../components/common/ReadAloudButton';
-import { analyzeCitizenGrievance } from '../../services/aiGrievanceApi';
 
 interface VoiceNavigationState {
   voiceTranscript?: string;
   detectedLanguage?: LanguageCode;
-  autoAnalyze?: boolean;
 }
 
-function mapProvisionalToPriorityLevel(prov?: string): PriorityLevel {
-  const clean = (prov || '').toLowerCase().trim();
-  if (clean === 'critical') return 'CRITICAL';
-  if (clean === 'high') return 'HIGH';
-  if (clean === 'low') return 'LOW';
-  return 'MEDIUM';
-}
+const ALL_GRIEVANCE_CATEGORIES: GrievanceCategory[] = [
+  'Water Supply',
+  'Roads and Potholes',
+  'Garbage Collection',
+  'Electricity',
+  'Streetlights',
+  'Drainage',
+  'Public Safety',
+];
 
 export const RegisterComplaintPage: React.FC = () => {
   const { user, submitComplaint } = useApp();
@@ -67,17 +66,24 @@ export const RegisterComplaintPage: React.FC = () => {
 
   const [step, setStep] = useState<1 | 2 | 3>(1);
 
-  // Complaint Language (strictly separate from UI language!)
+  // Complaint Language (strictly separate from UI language)
   const [language, setLanguage] = useState<LanguageCode>(
     user?.preferred_language || 'te'
   );
 
+  // Manual Department / Category & Priority Selection
+  const [selectedCategory, setSelectedCategory] = useState<GrievanceCategory>(
+    preselectedCategory || 'Water Supply'
+  );
+  const [selectedPriority, setSelectedPriority] =
+    useState<PriorityLevel>('MEDIUM');
+
   // Section A — Citizen Information
   // Mandatory: Full Name
   // Optional: Mobile Number, Email Address, Existing Citizen Reference ID, Designation / Occupation
-  const [citizenName, setCitizenName] = useState('');
+  const [citizenName, setCitizenName] = useState(user?.name || '');
   const [contactNumber, setContactNumber] = useState('');
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState(user?.email || '');
   const [citizenReferenceId, setCitizenReferenceId] = useState(
     user?.id || ''
   );
@@ -104,26 +110,13 @@ export const RegisterComplaintPage: React.FC = () => {
   const [affectedPeople, setAffectedPeople] = useState('');
   const [attachmentName, setAttachmentName] = useState<string>('');
 
-  // AI Grievance Understanding Engine States
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [aiAnalysis, setAiAnalysis] =
-    useState<GrievanceAIAnalysisResult | null>(null);
-  const [enhancedComplaintText, setEnhancedComplaintText] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<
-    GrievanceCategory | ''
-  >(preselectedCategory || '');
-  const [clarificationReply, setClarificationReply] = useState('');
-  const [assistantGuidance, setAssistantGuidance] = useState<string | null>(
-    null
-  );
-
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [createdTicket, setCreatedTicket] = useState<GrievanceRecord | null>(
     null
   );
 
-  const autoAnalyzedRef = useRef(false);
+  const populatedFromModalRef = useRef(false);
 
   useEffect(() => {
     if (preselectedCategory) {
@@ -131,137 +124,20 @@ export const RegisterComplaintPage: React.FC = () => {
     }
   }, [preselectedCategory]);
 
-  const applyAiPrefill = (analysis: GrievanceAIAnalysisResult) => {
-    setAiAnalysis(analysis);
-    if (analysis.enhanced_complaint) {
-      setEnhancedComplaintText(analysis.enhanced_complaint);
-    }
-    if (analysis.department_category) {
-      setSelectedCategory(analysis.department_category as GrievanceCategory);
-    }
-
-    const detectedIso = (analysis.detected_language || '').toLowerCase();
-    if (detectedIso.includes('telugu') || detectedIso.startsWith('te')) {
-      setLanguage('te');
-    } else if (detectedIso.includes('hindi') || detectedIso.startsWith('hi')) {
-      setLanguage('hi');
-    } else if (
-      detectedIso.includes('english') ||
-      detectedIso.startsWith('en')
-    ) {
-      setLanguage('en');
-    }
-
-    // Prefill Section A only when explicitly extracted from complaint (never invent)
-    if (analysis.citizen_name) {
-      setCitizenName((prev) => prev.trim() || analysis.citizen_name || '');
-    }
-    if (analysis.contact_number) {
-      setContactNumber((prev) => prev.trim() || analysis.contact_number || '');
-    }
-    if (analysis.email) {
-      setEmail((prev) => prev.trim() || analysis.email || '');
-    }
-    if (analysis.designation) {
-      setDesignation((prev) => prev.trim() || analysis.designation || '');
-    }
-
-    // Prefill Section B only when explicitly extracted from complaint
-    const extractedVillageOrCity =
-      analysis.location?.village ||
-      analysis.location?.town ||
-      analysis.location?.city ||
-      '';
-    if (extractedVillageOrCity) {
-      setVillageOrCity((prev) => prev.trim() || extractedVillageOrCity);
-    }
-
-    const extractedAreaOrStreet = [
-      analysis.location?.area,
-      analysis.location?.street,
-      analysis.location?.ward,
-    ]
-      .filter(Boolean)
-      .join(', ');
-    if (extractedAreaOrStreet) {
-      setAreaOrStreet((prev) => prev.trim() || extractedAreaOrStreet);
-    }
-
-    if (analysis.location?.landmark) {
-      setLandmark((prev) => prev.trim() || analysis.location.landmark || '');
-    }
-    if (analysis.location?.house_number) {
-      setHouseNumber(
-        (prev) => prev.trim() || analysis.location.house_number || ''
-      );
-    }
-    if (analysis.location?.mandal) {
-      setMandal((prev) => prev.trim() || analysis.location.mandal || '');
-    }
-    if (analysis.location?.district) {
-      setDistrict((prev) => prev.trim() || analysis.location.district || '');
-    }
-    if (analysis.location?.pincode) {
-      setPinCode((prev) => prev.trim() || analysis.location.pincode || '');
-    }
-
-    // Prefill Section C optional metadata when extracted
-    if (analysis.problem_duration) {
-      setProblemDuration(
-        (prev) => prev.trim() || analysis.problem_duration || ''
-      );
-    }
-    if (analysis.incident_date) {
-      setIncidentDate((prev) => prev.trim() || analysis.incident_date || '');
-    }
-    if (analysis.affected_people) {
-      setAffectedPeople(
-        (prev) => prev.trim() || analysis.affected_people || ''
-      );
-    }
-  };
-
   // Handle incoming Voice Modal navigation from Citizen Dashboard
   useEffect(() => {
     const navState = location.state as VoiceNavigationState | null;
     if (
       navState?.voiceTranscript &&
       navState.voiceTranscript.trim() &&
-      !autoAnalyzedRef.current
+      !populatedFromModalRef.current
     ) {
-      autoAnalyzedRef.current = true;
-      const incomingText = navState.voiceTranscript.trim();
-      setDescription(incomingText);
+      populatedFromModalRef.current = true;
+      setDescription(navState.voiceTranscript.trim());
       if (navState.detectedLanguage) {
         setLanguage(navState.detectedLanguage);
       }
-
-      if (navState.autoAnalyze) {
-        setIsAnalyzing(true);
-        setError(null);
-        setAssistantGuidance(null);
-        analyzeCitizenGrievance({ transcript: incomingText })
-          .then((analysis) => {
-            applyAiPrefill(analysis);
-            if (analysis.is_valid_grievance === false) {
-              setAssistantGuidance(
-                analysis.clarification_question ||
-                  'Please describe the specific civic issue you would like to report.'
-              );
-              setStep(1);
-            } else {
-              setStep(2);
-            }
-          })
-          .catch(() => {
-            setError(
-              'Unable to complete AI analysis automatically. Please review and click Analyze.'
-            );
-          })
-          .finally(() => {
-            setIsAnalyzing(false);
-          });
-      }
+      setStep(1);
     }
   }, [location.state]);
 
@@ -272,108 +148,62 @@ export const RegisterComplaintPage: React.FC = () => {
       setDescription(
         'నా పేరు రమేష్ కుమార్, మొబైల్ 9848022334. హైదరాబాద్ కూకట్‌పల్లి ఫేజ్ 3 కాలనీలో కమ్యూనిటీ హాల్ దగ్గర గత మూడు రోజులుగా మంచినీటి సరఫరా లేదు మరియు వాటర్ పైప్‌లైన్ లీకేజీ వల్ల 50 కుటుంబాలు తీవ్ర ఇబ్బంది పడుతున్నాము.'
       );
+      setSelectedCategory('Water Supply');
+      setSelectedPriority('HIGH');
+      setCitizenName('రమేష్ కుమార్ (Ramesh Kumar)');
+      setContactNumber('9848022334');
+      setVillageOrCity('హైదరాబాద్ (Hyderabad)');
+      setAreaOrStreet('కూకట్‌పల్లి ఫేజ్ 3 (Kukatpally Phase 3)');
+      setLandmark('కమ్యూనిటీ హాల్ దగ్గర (Near Community Hall)');
+      setProblemDuration('గత 3 రోజులుగా (Past 3 days)');
+      setAffectedPeople('50 కుటుంబాలు (50 families)');
     } else if (sampleLang === 'hi') {
       setDescription(
         'मेरा नाम राजेश शर्मा है। हैदराबाद में चारमीनार लाड बाज़ार मुख्य सड़क पर हनुमान मंदिर के पास पिछले चार दिनों से स्ट्रीट लाइटें काम नहीं कर रही हैं, रात में बुजुर्गों और महिलाओं को परेशानी हो रही है।'
       );
+      setSelectedCategory('Streetlights');
+      setSelectedPriority('MEDIUM');
+      setCitizenName('राजेश शर्मा (Rajesh Sharma)');
+      setContactNumber('9848022334');
+      setVillageOrCity('हैदराबाद (Hyderabad)');
+      setAreaOrStreet('चारमीनार लाड बाज़ार (Charminar Laad Bazaar)');
+      setLandmark('हनुमान मंदिर के पास (Near Hanuman Temple)');
+      setProblemDuration('पिछले 4 दिनों से (Past 4 days)');
+      setAffectedPeople('पूरी गली के निवासी (Entire street residents)');
     } else {
       setDescription(
         'My name is Arjun Reddy, mobile 9848022334. Deep potholes along Hyderabad Madhapur Main Road near Metro Pillar 1728 for the past 5 days causing severe traffic congestion and two-wheeler accidents.'
       );
-    }
-  };
-
-  const handleAnalyzeStep1 = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setAssistantGuidance(null);
-
-    if (!description.trim() || description.trim().length < 3) {
-      setError(t('validation.descriptionRequired'));
-      return;
-    }
-
-    setIsAnalyzing(true);
-    try {
-      const compositeParts = [description.trim()];
-      const manualLocParts = [
-        villageOrCity.trim(),
-        areaOrStreet.trim(),
-        landmark.trim() ? `Landmark: ${landmark.trim()}` : '',
-      ].filter(Boolean);
-      if (manualLocParts.length > 0) {
-        compositeParts.push(`Location: ${manualLocParts.join(', ')}`);
-      }
-
-      const analysis = await analyzeCitizenGrievance({
-        transcript: compositeParts.join(' | '),
-      });
-      applyAiPrefill(analysis);
-      if (analysis.is_valid_grievance === false) {
-        setAssistantGuidance(
-          analysis.clarification_question ||
-            'Please describe the specific civic issue (Water, Roads, Garbage, Electricity, Streetlights, Drainage, or Public Safety) and the affected location.'
-        );
-        setStep(1);
-      } else {
-        setStep(2);
-      }
-    } catch {
-      setError('Unable to analyze grievance at the moment. Please try again.');
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  const handleClarificationSubmit = async () => {
-    if (!clarificationReply.trim()) return;
-    setIsAnalyzing(true);
-    setError(null);
-    try {
-      const updated = await analyzeCitizenGrievance({
-        transcript: clarificationReply.trim(),
-        conversationContext: aiAnalysis
-          ? {
-              original_transcript: aiAnalysis.original_transcript || description,
-              department_category:
-                selectedCategory || aiAnalysis.department_category,
-              location: aiAnalysis.location,
-              citizen_name: citizenName || aiAnalysis.citizen_name,
-              problem_duration: problemDuration || aiAnalysis.problem_duration,
-            }
-          : null,
-      });
-      setDescription(updated.original_transcript || description);
-      applyAiPrefill(updated);
-      setClarificationReply('');
-      if (updated.is_valid_grievance !== false) {
-        setAssistantGuidance(null);
-        setStep(2);
-      } else {
-        setAssistantGuidance(updated.clarification_question || null);
-      }
-    } catch {
-      setError('Unable to update analysis with your clarification. Please edit the fields directly.');
-    } finally {
-      setIsAnalyzing(false);
+      setSelectedCategory('Roads and Potholes');
+      setSelectedPriority('HIGH');
+      setCitizenName('Arjun Reddy');
+      setContactNumber('9848022334');
+      setVillageOrCity('Hyderabad');
+      setAreaOrStreet('Madhapur Main Road');
+      setLandmark('Near Metro Pillar 1728');
+      setProblemDuration('Past 5 days');
+      setAffectedPeople('Daily commuters and two-wheeler riders');
     }
   };
 
   const validateMandatoryAndOptionalFields = (): string | null => {
+    if (!description.trim() || description.trim().length < 5) {
+      return t('validation.descriptionRequired');
+    }
+    if (!selectedCategory) {
+      return 'Please select the municipal department / category for your complaint.';
+    }
     if (!citizenName.trim() || citizenName.trim().length < 2) {
       return t('validation.fullNameRequired');
     }
     if (!villageOrCity.trim()) {
       return t('validation.villageOrCityRequired');
     }
-    if (!areaOrStreet.trim()) {
+    if (!areaOrStreet.trim() && !landmark.trim()) {
       return t('validation.areaOrStreetRequired');
     }
     if (!landmark.trim()) {
       return t('validation.landmarkRequired');
-    }
-    if (!description.trim() || description.trim().length < 10) {
-      return t('validation.descriptionRequired');
     }
 
     // Optional field format validation (only when provided)
@@ -403,6 +233,24 @@ export const RegisterComplaintPage: React.FC = () => {
     return null;
   };
 
+  const handleProceedToReview = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+
+    if (!description.trim() || description.trim().length < 5) {
+      setError(t('validation.descriptionRequired'));
+      return;
+    }
+
+    if (!selectedCategory) {
+      setError('Please select a department to complain to.');
+      return;
+    }
+
+    setStep(2);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleFinalSubmit = async () => {
     setError(null);
     const validationErr = validateMandatoryAndOptionalFields();
@@ -428,9 +276,7 @@ export const RegisterComplaintPage: React.FC = () => {
         locationSegments.join(', ') || 'Hyderabad Municipal Area';
 
       const finalCategory: GrievanceCategory =
-        (selectedCategory as GrievanceCategory) ||
-        (aiAnalysis?.department_category as GrievanceCategory) ||
-        'Public Safety';
+        selectedCategory || 'Water Supply';
 
       const contactParts = [
         contactNumber.trim(),
@@ -440,10 +286,7 @@ export const RegisterComplaintPage: React.FC = () => {
 
       const { grievance: record } = await submitComplaint({
         language,
-        description:
-          enhancedComplaintText.trim() ||
-          aiAnalysis?.enhanced_complaint ||
-          description.trim(),
+        description: description.trim(),
         originalTranscript: description.trim(),
         category: finalCategory,
         location: finalLocationString,
@@ -451,12 +294,13 @@ export const RegisterComplaintPage: React.FC = () => {
         landmark: landmark.trim(),
         contact: contactParts.join(' | ') || undefined,
         citizenName: citizenName.trim(),
-        priority: mapProvisionalToPriorityLevel(aiAnalysis?.priority),
-        confidenceScore: aiAnalysis?.confidence_score ?? 1.0,
+        priority: selectedPriority,
+        confidenceScore: 1.0,
       });
 
       setCreatedTicket(record);
       setStep(3);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch {
       setError('Failed to submit grievance. Please try again.');
     } finally {
@@ -465,13 +309,13 @@ export const RegisterComplaintPage: React.FC = () => {
   };
 
   const currentDepartmentAsset = getVisualAssetForDepartmentOrCategory(
-    selectedCategory || aiAnalysis?.department_category || 'Water Supply'
+    selectedCategory || 'Water Supply'
   );
 
   const isMissingMandatoryOnReview =
     !citizenName.trim() ||
     !villageOrCity.trim() ||
-    !areaOrStreet.trim() ||
+    (!areaOrStreet.trim() && !landmark.trim()) ||
     !landmark.trim() ||
     !description.trim();
 
@@ -522,29 +366,15 @@ export const RegisterComplaintPage: React.FC = () => {
         </div>
 
         {error && (
-          <div className="mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2 text-xs text-red-700 font-medium">
+          <div className="mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-center gap-2.5 text-xs text-red-700 font-medium">
             <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Loading Overlay when Auto-Analyzing from Dashboard Voice Modal */}
-        {isAnalyzing && step === 1 && (
-          <div className="mt-5 p-6 rounded-xl bg-sky-50/90 border border-sky-200 flex flex-col items-center justify-center gap-3 text-center">
-            <Loader2 className="w-7 h-7 animate-spin text-[#1D4ED8]" />
-            <div className="text-sm font-bold text-[#102A56]">
-              {t('common.analyzing')}
-            </div>
-            <p className="text-xs text-[#63718A] max-w-md">
-              Gemini 3.8 Flash is extracting citizen details, location,
-              department classification, and preparing your formal complaint...
-            </p>
-          </div>
-        )}
-
-        {/* STEP 1: VOICE OR STRUCTURED FORM INPUT (SECTIONS A, B, C) */}
+        {/* STEP 1: VOICE-TO-GRIEVANCE, READ ALOUD, MANUAL DEPARTMENT SELECTION & FORM DETAILS */}
         {step === 1 && (
-          <form onSubmit={handleAnalyzeStep1} className="space-y-6 pt-6">
+          <form onSubmit={handleProceedToReview} className="space-y-6 pt-6">
             {/* Sample Multilingual Complaint Buttons */}
             <div className="p-3.5 rounded-xl bg-sky-50/70 border border-sky-200/80 flex flex-wrap items-center justify-between gap-2 text-xs">
               <div className="flex items-center gap-2 font-semibold text-[#102A56]">
@@ -576,8 +406,8 @@ export const RegisterComplaintPage: React.FC = () => {
               </div>
             </div>
 
-            {/* SECTION C FIRST FOR VOICE-FIRST EXPERIENCE: VOICE & COMPLAINT DESCRIPTION */}
-            <div className="p-5 rounded-2xl bg-[#FFFCF7] border border-sky-200/90 space-y-4">
+            {/* SECTION C FIRST: SPEAK PROBLEM -> COMPLAINT DESCRIPTION -> READ ALOUD -> SELECT DEPARTMENT */}
+            <div className="p-5 rounded-2xl bg-[#FFFCF7] border border-sky-200/90 space-y-5">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-sky-200/70">
                 <div>
                   <h2 className="text-sm font-bold text-[#102A56] flex items-center gap-2">
@@ -604,17 +434,21 @@ export const RegisterComplaintPage: React.FC = () => {
                 }}
               />
 
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Complaint Description Textbox + Prominent Read Aloud */}
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
                   <label
                     htmlFor="grievance-description"
-                    className="block text-xs font-semibold text-[#102A56]"
+                    className="block text-xs font-bold text-[#102A56]"
                   >
                     {t('registerComplaint.description')}
                   </label>
-                  <span className="text-[11px] font-mono text-[#63718A]">
-                    {description.length} chars
-                  </span>
+                  <div className="flex items-center gap-3">
+                    <ReadAloudButton text={description} language={language} />
+                    <span className="text-[11px] font-mono text-[#63718A]">
+                      {description.length} chars
+                    </span>
+                  </div>
                 </div>
                 <textarea
                   id="grievance-description"
@@ -622,8 +456,128 @@ export const RegisterComplaintPage: React.FC = () => {
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t('registerComplaint.descriptionPlaceholder')}
-                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
+                  className="w-full px-3.5 py-2.5 text-sm bg-white border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8] leading-relaxed"
                 />
+              </div>
+
+              {/* MANUAL DEPARTMENT SELECTION SECTION */}
+              <div className="p-4 rounded-xl bg-sky-50/75 border-2 border-sky-200/90 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-[#102A56] flex items-center gap-1.5">
+                      <Building2 className="w-4 h-4 text-[#1D4ED8]" />
+                      <span>Select Municipal Department for Your Complaint *</span>
+                    </h3>
+                    <p className="text-[11px] text-[#63718A] mt-0.5">
+                      Choose which civic department you want to route your complaint to.
+                    </p>
+                  </div>
+                  <span className="text-xs font-bold text-[#1D4ED8] bg-white px-3 py-1 rounded-lg border border-sky-200">
+                    {translateDepartment(currentDepartmentAsset.departmentName)}
+                  </span>
+                </div>
+
+                {/* Quick Department Selector Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                  {ALL_GRIEVANCE_CATEGORIES.map((category) => {
+                    const deptAsset =
+                      getVisualAssetForDepartmentOrCategory(category);
+                    const isSelected = selectedCategory === category;
+                    return (
+                      <button
+                        key={category}
+                        type="button"
+                        onClick={() => setSelectedCategory(category)}
+                        className={`text-left p-3 rounded-xl border transition-all cursor-pointer flex flex-col justify-between gap-1 ${
+                          isSelected
+                            ? 'border-2 border-[#1D4ED8] bg-white shadow-xs ring-2 ring-[#48A9E8]/25'
+                            : 'border-sky-200/90 bg-[#FFFCF7] hover:bg-white hover:border-sky-400'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-[#102A56]">
+                            {translateCategory(category)}
+                          </span>
+                          {isSelected && (
+                            <CheckCircle2 className="w-4 h-4 text-[#1D4ED8] shrink-0" />
+                          )}
+                        </div>
+                        <span className="text-[11px] font-medium text-[#1D4ED8]">
+                          {translateDepartment(deptAsset.departmentName)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Selected Department Preview & Priority Selector */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center pt-2 border-t border-sky-200/70">
+                  <div className="md:col-span-4 aspect-video rounded-lg overflow-hidden border border-sky-200/80 bg-slate-900">
+                    <img
+                      src={currentDepartmentAsset.bannerImage}
+                      alt={currentDepartmentAsset.departmentName}
+                      className="w-full h-full object-cover object-center"
+                    />
+                  </div>
+                  <div className="md:col-span-8 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <label
+                        htmlFor="step1-department-select"
+                        className="block font-semibold text-[#102A56] mb-1"
+                      >
+                        {t('review.identifiedCategory')} *
+                      </label>
+                      <select
+                        id="step1-department-select"
+                        value={selectedCategory}
+                        onChange={(e) =>
+                          setSelectedCategory(
+                            e.target.value as GrievanceCategory
+                          )
+                        }
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white border border-sky-300 rounded-xl text-[#102A56] focus:outline-none focus:border-[#1D4ED8]"
+                      >
+                        {ALL_GRIEVANCE_CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {translateCategory(cat)} —{' '}
+                            {translateDepartment(
+                              getVisualAssetForDepartmentOrCategory(cat)
+                                .departmentName
+                            )}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor="step1-priority-select"
+                        className="block font-semibold text-[#102A56] mb-1"
+                      >
+                        {t('review.detectedUrgency')}
+                      </label>
+                      <select
+                        id="step1-priority-select"
+                        value={selectedPriority}
+                        onChange={(e) =>
+                          setSelectedPriority(e.target.value as PriorityLevel)
+                        }
+                        className="w-full px-3 py-2 text-xs font-semibold bg-white border border-sky-300 rounded-xl text-[#102A56] focus:outline-none focus:border-[#1D4ED8]"
+                      >
+                        <option value="LOW">{translatePriority('LOW')}</option>
+                        <option value="MEDIUM">
+                          {translatePriority('MEDIUM')}
+                        </option>
+                        <option value="HIGH">
+                          {translatePriority('HIGH')}
+                        </option>
+                        <option value="CRITICAL">
+                          {translatePriority('CRITICAL')}
+                        </option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Optional Complaint Details */}
@@ -874,7 +828,7 @@ export const RegisterComplaintPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Supporting Attachment + Submit to AI Analysis */}
+            {/* Supporting Attachment + Proceed Directly to Review */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
               <div className="text-xs text-[#63718A]">
                 <label className="font-semibold text-[#102A56] mr-2">
@@ -897,60 +851,19 @@ export const RegisterComplaintPage: React.FC = () => {
 
               <button
                 type="submit"
-                disabled={isAnalyzing}
-                className="jana-btn-accent px-6 py-3 text-sm font-semibold rounded-xl inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60 shadow-sm"
+                className="jana-btn-accent px-6 py-3 text-sm font-semibold rounded-xl inline-flex items-center justify-center gap-2 cursor-pointer shadow-sm"
               >
-                {isAnalyzing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>{t('common.analyzing')}</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    <span>{t('registerComplaint.analyzeBtn')}</span>
-                  </>
-                )}
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{t('registerComplaint.analyzeBtn')}</span>
               </button>
             </div>
           </form>
         )}
 
-        {assistantGuidance && step === 1 && (
-          <div className="mt-4 p-4 rounded-xl bg-amber-50 border-2 border-amber-300 space-y-3">
-            <div className="flex items-start gap-2.5">
-              <Sparkles className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-              <div className="space-y-1">
-                <div className="text-xs font-bold text-amber-950">
-                  JANASEVA AI Assistant ({aiAnalysis?.intent_type || 'Clarification Needed'})
-                </div>
-                <p className="text-xs text-amber-900 leading-relaxed">
-                  {assistantGuidance}
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 2: IMPROVED AI ANALYSIS REVIEW SCREEN (FEATURE 5) */}
-        {step === 2 && aiAnalysis && (
+        {/* STEP 2: CITIZEN REVIEW & CONFIRMATION SCREEN (NO AI DEPENDENCY) */}
+        {step === 2 && (
           <div className="space-y-6 pt-6">
-            {/* Immediate Danger Safety Advisory Banner */}
-            {aiAnalysis.safety_advisory && (
-              <div className="p-4 rounded-xl bg-red-50 border-2 border-red-400 flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-red-700 shrink-0 mt-0.5" />
-                <div className="space-y-1">
-                  <div className="text-xs font-bold text-red-950">
-                    Immediate Safety Advisory
-                  </div>
-                  <p className="text-xs text-red-900 leading-relaxed">
-                    {aiAnalysis.safety_advisory}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Mandatory Confirmation Notice Banner */}
+            {/* Review Confirmation Notice Banner */}
             <div className="p-4 rounded-xl bg-amber-50/95 border-2 border-amber-300 flex items-start gap-3">
               <FileCheck2 className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
               <div className="space-y-1">
@@ -970,96 +883,7 @@ export const RegisterComplaintPage: React.FC = () => {
               </div>
             )}
 
-            {/* Conversational Clarification Memory Box (Section 5) */}
-            {aiAnalysis.clarification_question && (
-              <div className="p-4 rounded-xl bg-sky-50/90 border border-sky-300 space-y-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <div className="text-xs font-bold text-[#102A56] flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-[#1D4ED8]" />
-                      <span>JANASEVA AI Follow-up Question</span>
-                    </div>
-                    <p className="text-xs text-[#102A56] leading-relaxed">
-                      {aiAnalysis.clarification_question}
-                    </p>
-                  </div>
-                  <ReadAloudButton
-                    text={aiAnalysis.clarification_question}
-                    language={aiAnalysis.detected_language || language}
-                  />
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <input
-                    type="text"
-                    value={clarificationReply}
-                    onChange={(e) => setClarificationReply(e.target.value)}
-                    placeholder="Reply here (e.g., Near the government school in Ramapuram village)..."
-                    className="flex-1 px-3 py-2 text-xs bg-white border border-sky-300 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
-                  />
-                  <button
-                    type="button"
-                    disabled={isAnalyzing || !clarificationReply.trim()}
-                    onClick={handleClarificationSubmit}
-                    className="jana-btn-primary px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer disabled:opacity-50"
-                  >
-                    {isAnalyzing ? 'Updating...' : 'Update with Clarification'}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Multiple Identified Issues Panel (Section 4C) */}
-            {aiAnalysis.identified_issues &&
-              aiAnalysis.identified_issues.length > 1 && (
-                <div className="p-4 rounded-xl bg-[#FFFCF7] border-2 border-sky-300 space-y-3">
-                  <div className="text-xs font-bold text-[#102A56]">
-                    Multiple Separate Civic Grievances Identified (
-                    {aiAnalysis.identified_issues.length} Issues) — Select Which
-                    Issue to Register First:
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {aiAnalysis.identified_issues.map((issue) => {
-                      const isSelected =
-                        (selectedCategory || aiAnalysis.department_category) ===
-                        issue.category;
-                      return (
-                        <button
-                          key={issue.issue_number}
-                          type="button"
-                          onClick={() =>
-                            setSelectedCategory(
-                              issue.category as GrievanceCategory
-                            )
-                          }
-                          className={`text-left p-3 rounded-xl border transition cursor-pointer ${
-                            isSelected
-                              ? 'border-[#1D4ED8] bg-sky-50/90 shadow-xs'
-                              : 'border-sky-200 bg-white hover:border-sky-400'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between text-xs font-bold text-[#102A56]">
-                            <span>
-                              Issue {issue.issue_number}:{' '}
-                              {translateCategory(issue.category)}
-                            </span>
-                            <span className="text-[10px] font-mono text-[#1D4ED8]">
-                              {issue.department_id}
-                            </span>
-                          </div>
-                          <div className="text-[11px] font-semibold text-[#1D4ED8] mt-0.5">
-                            {translateDepartment(issue.department_name)}
-                          </div>
-                          <p className="text-[11px] text-[#63718A] mt-1 line-clamp-2">
-                            {issue.problem_summary}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-            {/* Assigned Department Visual Card + Classification Metadata */}
+            {/* Selected Department Visual Card + Priority */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-xl bg-[#FFFCF7] border border-sky-200/90">
               <div className="md:col-span-5 aspect-video rounded-lg overflow-hidden border border-sky-200/70 bg-slate-900">
                 <img
@@ -1076,8 +900,7 @@ export const RegisterComplaintPage: React.FC = () => {
                   </span>
                   <span className="px-2.5 py-0.5 rounded-md bg-sky-100 text-[#102A56] text-[11px] font-mono font-semibold">
                     {t('review.detectedLanguage')}:{' '}
-                    {aiAnalysis.detected_language ||
-                      formatLanguageName(language)}
+                    {formatLanguageName(language)}
                   </span>
                 </div>
 
@@ -1091,105 +914,73 @@ export const RegisterComplaintPage: React.FC = () => {
                       {t('review.identifiedCategory')}
                     </label>
                     <select
-                      value={
-                        selectedCategory ||
-                        aiAnalysis.department_category ||
-                        'Public Safety'
-                      }
+                      value={selectedCategory}
                       onChange={(e) =>
                         setSelectedCategory(e.target.value as GrievanceCategory)
                       }
                       className="w-full px-2.5 py-1.5 text-xs font-semibold bg-white border border-sky-300 rounded-lg text-[#102A56]"
                     >
-                      <option value="Water Supply">
-                        {translateCategory('Water Supply')}
-                      </option>
-                      <option value="Roads and Potholes">
-                        {translateCategory('Roads and Potholes')}
-                      </option>
-                      <option value="Garbage Collection">
-                        {translateCategory('Garbage Collection')}
-                      </option>
-                      <option value="Electricity">
-                        {translateCategory('Electricity')}
-                      </option>
-                      <option value="Streetlights">
-                        {translateCategory('Streetlights')}
-                      </option>
-                      <option value="Drainage">
-                        {translateCategory('Drainage')}
-                      </option>
-                      <option value="Public Safety">
-                        {translateCategory('Public Safety')}
-                      </option>
+                      {ALL_GRIEVANCE_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {translateCategory(cat)}
+                        </option>
+                      ))}
                     </select>
                   </div>
 
                   <div>
-                    <div className="text-[11px] text-[#63718A] mb-1">
+                    <label className="block text-[11px] text-[#63718A] mb-1">
                       {t('review.detectedUrgency')}
-                    </div>
+                    </label>
                     <div className="flex items-center gap-2">
+                      <select
+                        value={selectedPriority}
+                        onChange={(e) =>
+                          setSelectedPriority(e.target.value as PriorityLevel)
+                        }
+                        className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-sky-300 rounded-lg text-[#102A56]"
+                      >
+                        <option value="LOW">{translatePriority('LOW')}</option>
+                        <option value="MEDIUM">
+                          {translatePriority('MEDIUM')}
+                        </option>
+                        <option value="HIGH">
+                          {translatePriority('HIGH')}
+                        </option>
+                        <option value="CRITICAL">
+                          {translatePriority('CRITICAL')}
+                        </option>
+                      </select>
                       <span
                         className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase ${getPriorityColorClass(
-                          mapProvisionalToPriorityLevel(aiAnalysis.priority)
+                          selectedPriority
                         )}`}
                       >
-                        {translatePriority(aiAnalysis.priority || 'NORMAL')}
+                        {translatePriority(selectedPriority)}
                       </span>
                     </div>
-                    {aiAnalysis.priority_reason && (
-                      <p className="text-[11px] text-[#63718A] mt-1">
-                        {aiAnalysis.priority_reason}
-                      </p>
-                    )}
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* 1. Original Complaint Transcript + Read Aloud + Editable */}
+            {/* 1. Complaint Description + Read Aloud + Editable */}
             <div className="p-4 rounded-xl bg-[#FFFCF7] border border-sky-200/90 space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <label className="text-xs font-bold text-[#102A56]">
                   1. {t('review.originalComplaint')}
                 </label>
-                <ReadAloudButton
-                  text={description}
-                  language={aiAnalysis.detected_language || language}
-                />
-              </div>
-              <textarea
-                rows={3}
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                className="w-full p-3 text-sm bg-white border border-sky-300/80 rounded-xl text-[#102A56] focus:outline-none focus:border-[#1D4ED8]"
-              />
-            </div>
-
-            {/* 2. Gemini-Enhanced Formal Complaint + Read Aloud + Editable */}
-            <div className="p-4 rounded-xl bg-sky-50/70 border-2 border-[#48A9E8]/60 space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-[#1D4ED8]" />
-                  <label className="text-xs font-bold text-[#102A56]">
-                    2. {t('review.enhancedComplaint')}
-                  </label>
-                </div>
-                <ReadAloudButton
-                  text={enhancedComplaintText}
-                  language={aiAnalysis.detected_language || language}
-                />
+                <ReadAloudButton text={description} language={language} />
               </div>
               <textarea
                 rows={4}
-                value={enhancedComplaintText}
-                onChange={(e) => setEnhancedComplaintText(e.target.value)}
-                className="w-full p-3 text-sm bg-white border border-sky-300/90 rounded-xl text-[#102A56] focus:outline-none focus:border-[#1D4ED8] leading-relaxed"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="w-full p-3 text-sm bg-white border border-sky-300/80 rounded-xl text-[#102A56] focus:outline-none focus:border-[#1D4ED8] leading-relaxed"
               />
             </div>
 
-            {/* 3. Extracted & Editable Citizen Information (Section A) */}
+            {/* 2. Editable Citizen Information (Section A) */}
             <div className="p-5 rounded-xl bg-[#FFFCF7] border border-sky-200/90 space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#102A56] flex items-center gap-2">
                 <User className="w-4 h-4 text-[#1D4ED8]" />
@@ -1267,7 +1058,7 @@ export const RegisterComplaintPage: React.FC = () => {
               </div>
             </div>
 
-            {/* 4. Extracted & Editable Location Information (Section B) */}
+            {/* 3. Editable Location Information (Section B) */}
             <div className="p-5 rounded-xl bg-[#FFFCF7] border border-sky-200/90 space-y-4">
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#102A56] flex items-center gap-2">
                 <MapPin className="w-4 h-4 text-[#1D4ED8]" />
@@ -1542,8 +1333,6 @@ export const RegisterComplaintPage: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setDescription('');
-                  setEnhancedComplaintText('');
-                  setAiAnalysis(null);
                   setCreatedTicket(null);
                   setStep(1);
                 }}
