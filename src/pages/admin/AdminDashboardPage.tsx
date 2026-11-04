@@ -16,6 +16,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   formatDateShort,
   formatStatusLabel,
@@ -34,6 +35,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 export const AdminDashboardPage: React.FC = () => {
   const { grievances, departments } = useApp();
+  const {
+    t,
+    translateCategory,
+    translateDepartment,
+    translateStatus,
+    translatePriority,
+  } = useLanguage();
   const navigate = useNavigate();
 
   const totalCount = grievances.length;
@@ -50,7 +58,6 @@ export const AdminDashboardPage: React.FC = () => {
     (g) => g.status === 'RESOLVED' || g.status === 'CLOSED'
   ).length;
 
-  // Overdue: unresolved complaints older than 48 hours
   const nowMs = new Date('2026-11-03T09:00:00Z').getTime();
   const overdueCount = grievances.filter((g) => {
     if (
@@ -64,7 +71,6 @@ export const AdminDashboardPage: React.FC = () => {
     return nowMs - createdMs > 48 * 3600 * 1000;
   }).length;
 
-  // 1. Complaints Overview by Category
   const categoryCountsMap: Record<string, number> = {};
   grievances.forEach((g) => {
     categoryCountsMap[g.predicted_category] =
@@ -77,7 +83,6 @@ export const AdminDashboardPage: React.FC = () => {
     })
   );
 
-  // 2. Department-wise Complaints
   const deptChartData = departments.map((d) => {
     const count = grievances.filter(
       (g) => g.assigned_department === d.department_name
@@ -88,7 +93,6 @@ export const AdminDashboardPage: React.FC = () => {
     };
   });
 
-  // 3. Monthly Complaint Trends (Demo + Live Current Month)
   const monthlyTrendsData = [
     { month: 'Jun 2026', Submitted: 18, Resolved: 15 },
     { month: 'Jul 2026', Submitted: 24, Resolved: 21 },
@@ -102,7 +106,6 @@ export const AdminDashboardPage: React.FC = () => {
     },
   ];
 
-  // 4. Complaint Status Distribution
   const statusCounts: Record<string, number> = {};
   grievances.forEach((g) => {
     const label = formatStatusLabel(g.status);
@@ -129,11 +132,10 @@ export const AdminDashboardPage: React.FC = () => {
       <section className="jana-card p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#102A56]">
-            Municipal Command Dashboard
+            {t('admin.dashboard.title')}
           </h1>
           <p className="text-xs text-[#63718A] mt-1">
-            Real-time overview of citizen grievances, departmental queues, and
-            SLA compliance across Hyderabad.
+            {t('admin.dashboard.subtitle')}
           </p>
         </div>
 
@@ -143,21 +145,21 @@ export const AdminDashboardPage: React.FC = () => {
             onClick={() => navigate('/admin/complaints')}
             className="jana-btn-primary px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer"
           >
-            Manage All Complaints
+            {t('admin.manageAllComplaints')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/admin/departments')}
             className="jana-btn-secondary px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer"
           >
-            Department Routing
+            {t('admin.departmentRouting')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/admin/analytics')}
             className="jana-btn-accent px-4 py-2 text-xs font-semibold rounded-xl cursor-pointer"
           >
-            Detailed Analytics
+            {t('admin.detailedAnalytics')}
           </button>
         </div>
       </section>
@@ -165,31 +167,41 @@ export const AdminDashboardPage: React.FC = () => {
       {/* 5 Summary Statistics Cards */}
       <section className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
         <div className="jana-card jana-card-interactive p-5">
-          <div className="text-xs text-[#63718A]">Total Complaints</div>
+          <div className="text-xs text-[#63718A]">
+            {t('dashboard.stats.total')}
+          </div>
           <div className="text-2xl font-bold text-[#102A56] font-mono tabular-nums mt-1">
             {totalCount}
           </div>
         </div>
         <div className="jana-card jana-card-interactive p-5">
-          <div className="text-xs text-[#63718A]">Pending</div>
+          <div className="text-xs text-[#63718A]">
+            {t('dashboard.stats.pending')}
+          </div>
           <div className="text-2xl font-bold text-amber-700 font-mono tabular-nums mt-1">
             {pendingCount}
           </div>
         </div>
         <div className="jana-card jana-card-interactive p-5">
-          <div className="text-xs text-[#63718A]">In Progress</div>
+          <div className="text-xs text-[#63718A]">
+            {t('dashboard.stats.inProgress')}
+          </div>
           <div className="text-2xl font-bold text-[#1D4ED8] font-mono tabular-nums mt-1">
             {inProgressCount}
           </div>
         </div>
         <div className="jana-card jana-card-interactive p-5">
-          <div className="text-xs text-[#63718A]">Resolved</div>
+          <div className="text-xs text-[#63718A]">
+            {t('dashboard.stats.resolved')}
+          </div>
           <div className="text-2xl font-bold text-emerald-700 font-mono tabular-nums mt-1">
             {resolvedCount}
           </div>
         </div>
         <div className="jana-card jana-card-interactive p-5">
-          <div className="text-xs text-[#63718A]">Overdue (&gt;48h)</div>
+          <div className="text-xs text-[#63718A]">
+            {t('admin.stats.overdue')}
+          </div>
           <div className="text-2xl font-bold text-red-700 font-mono tabular-nums mt-1">
             {overdueCount}
           </div>
@@ -198,14 +210,10 @@ export const AdminDashboardPage: React.FC = () => {
 
       {/* 4 Visual Charts Grid */}
       <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Chart 1: Complaints Overview by Category */}
         <div className="jana-card p-6">
-          <h2 className="text-sm font-bold text-[#102A56]">
-            1. Complaints Overview by Category (Live Data)
+          <h2 className="text-sm font-bold text-[#102A56] mb-4">
+            {t('admin.chart1.title')}
           </h2>
-          <p className="text-xs text-[#63718A] mt-0.5 mb-4">
-            Distribution of active grievances across civic categories.
-          </p>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={overviewChartData}>
@@ -223,14 +231,10 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Chart 2: Department-wise Complaints */}
         <div className="jana-card p-6">
-          <h2 className="text-sm font-bold text-[#102A56]">
-            2. Department-wise Complaints (Live Data)
+          <h2 className="text-sm font-bold text-[#102A56] mb-4">
+            {t('admin.chart2.title')}
           </h2>
-          <p className="text-xs text-[#63718A] mt-0.5 mb-4">
-            Active ticket workload across the 7 Hyderabad municipal departments.
-          </p>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={deptChartData} layout="vertical">
@@ -253,14 +257,10 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Chart 3: Monthly Complaint Trends */}
         <div className="jana-card p-6">
-          <h2 className="text-sm font-bold text-[#102A56]">
-            3. Monthly Complaint Trends (Demo Historical + Live)
+          <h2 className="text-sm font-bold text-[#102A56] mb-4">
+            {t('admin.chart3.title')}
           </h2>
-          <p className="text-xs text-[#63718A] mt-0.5 mb-4">
-            Monthly comparison of submitted vs. resolved civic grievances.
-          </p>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={monthlyTrendsData}>
@@ -286,14 +286,10 @@ export const AdminDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Chart 4: Complaint Status Distribution */}
         <div className="jana-card p-6">
-          <h2 className="text-sm font-bold text-[#102A56]">
-            4. Complaint Status Distribution (Live Data)
+          <h2 className="text-sm font-bold text-[#102A56] mb-4">
+            {t('admin.chart4.title')}
           </h2>
-          <p className="text-xs text-[#63718A] mt-0.5 mb-4">
-            Current lifecycle breakdown of all tickets in the database.
-          </p>
           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -326,13 +322,13 @@ export const AdminDashboardPage: React.FC = () => {
         <section className="lg:col-span-8 jana-card p-6">
           <div className="flex items-center justify-between pb-4 border-b border-sky-200/70">
             <h2 className="text-base font-bold text-[#102A56]">
-              Recent Complaints
+              {t('dashboard.recentComplaints')}
             </h2>
             <Link
               to="/admin/complaints"
               className="text-xs font-semibold text-[#1D4ED8] hover:underline"
             >
-              View All Complaints →
+              {t('dashboard.viewAll')} →
             </Link>
           </div>
 
@@ -340,11 +336,13 @@ export const AdminDashboardPage: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-sky-200/70 text-xs text-[#63718A]">
-                  <th className="py-2.5 pr-3">Ticket ID</th>
-                  <th className="py-2.5 px-3">Department &amp; Category</th>
-                  <th className="py-2.5 px-3">Priority</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 pl-3 text-right">Action</th>
+                  <th className="py-2.5 pr-3">{t('table.ticketId')}</th>
+                  <th className="py-2.5 px-3">{t('table.categoryAndDept')}</th>
+                  <th className="py-2.5 px-3">{t('table.priority')}</th>
+                  <th className="py-2.5 px-3">{t('table.status')}</th>
+                  <th className="py-2.5 pl-3 text-right">
+                    {t('table.action')}
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-sky-100 text-xs">
@@ -371,10 +369,10 @@ export const AdminDashboardPage: React.FC = () => {
                           </div>
                           <div>
                             <div className="font-semibold text-[#102A56]">
-                              {g.predicted_category}
+                              {translateCategory(g.predicted_category)}
                             </div>
                             <div className="text-[11px] text-[#1D4ED8] font-medium">
-                              {g.assigned_department}
+                              {translateDepartment(g.assigned_department)}
                             </div>
                           </div>
                         </div>
@@ -384,21 +382,21 @@ export const AdminDashboardPage: React.FC = () => {
                           g.priority
                         )}`}
                       >
-                        {g.priority}
+                        {translatePriority(g.priority)}
                       </td>
                       <td
                         className={`py-3 px-3 whitespace-nowrap ${getStatusColorClass(
                           g.status
                         )}`}
                       >
-                        {formatStatusLabel(g.status)}
+                        {translateStatus(g.status)}
                       </td>
                       <td className="py-3 pl-3 text-right whitespace-nowrap">
                         <Link
                           to={`/admin/complaints/${g.ticket_id}`}
                           className="font-semibold text-[#1D4ED8] hover:underline"
                         >
-                          Manage
+                          {t('common.manage')}
                         </Link>
                       </td>
                     </tr>
@@ -412,11 +410,8 @@ export const AdminDashboardPage: React.FC = () => {
         <section className="lg:col-span-4 jana-card p-6 space-y-5">
           <div>
             <h2 className="text-base font-bold text-[#102A56]">
-              Top Departments &amp; Recent Activity
+              {t('admin.recentActivity')}
             </h2>
-            <p className="text-xs text-[#63718A] mt-0.5">
-              Latest audit trail updates across municipal units.
-            </p>
           </div>
 
           <div className="divide-y divide-sky-100">
@@ -449,7 +444,8 @@ export const AdminDashboardPage: React.FC = () => {
                       </span>
                     </div>
                     <div className="text-[#102A56] font-medium mt-0.5 truncate">
-                      {formatStatusLabel(act.new_status)} · {act.department}
+                      {translateStatus(act.new_status)} ·{' '}
+                      {translateDepartment(act.department)}
                     </div>
                     <p className="text-[#63718A] truncate mt-0.5">
                       {act.remarks}

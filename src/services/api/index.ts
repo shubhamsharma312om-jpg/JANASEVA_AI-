@@ -79,9 +79,11 @@ export const apiService = {
 
   async createGrievance(payload: {
     original_message: string;
+    translated_message?: string;
     category: GrievanceCategory;
     language: LanguageCode;
     priority?: PriorityLevel;
+    confidence_score?: number;
     citizen_id: string;
     citizen_name?: string;
     citizen_contact?: string;
@@ -95,7 +97,7 @@ export const apiService = {
       if (res.ok) {
         const created: GrievanceRecord = await res.json();
         const current = localStore.getGrievances();
-        localStore.setGrievances([created, ...current]);
+        localStore.setGrievances([created, ...current.filter((g) => g.ticket_id !== created.ticket_id)]);
         return { grievance: created, fromBackend: true };
       }
     } catch {
@@ -113,11 +115,11 @@ export const apiService = {
       citizen_id: payload.citizen_id,
       original_message: payload.original_message,
       detected_language: payload.language,
-      translated_message: null,
+      translated_message: payload.translated_message || null,
       predicted_category: payload.category,
       assigned_department,
       priority: payload.priority || 'MEDIUM',
-      confidence_score: 1.0,
+      confidence_score: payload.confidence_score ?? 1.0,
       status: 'SUBMITTED',
       created_at: now,
       updated_at: now,

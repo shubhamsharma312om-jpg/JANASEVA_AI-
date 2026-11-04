@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.database.init_db import initialize_sqlite_database
-from app.api.routes import health, departments, grievances, speech
+from app.api.routes import health, departments, grievances, speech, ai
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.include_router(health.router, prefix="/api")
 app.include_router(departments.router, prefix="/api")
 app.include_router(grievances.router, prefix="/api")
 app.include_router(speech.router, prefix="/api")
+app.include_router(ai.router, prefix="/api")
 
 
 @app.get("/", tags=["Root"])
@@ -49,7 +50,7 @@ def read_root():
     return {
         "project": settings.PROJECT_NAME,
         "tagline": settings.TAGLINE,
-        "phase": "Phase 1 Foundation + Multilingual Voice Engine (Sarvam Saaras v4)",
+        "phase": "Intelligent Grievance Understanding Engine + Multilingual Voice (Sarvam Saaras v4)",
         "docs_url": "/docs",
         "health_endpoint": "/api/health",
     }

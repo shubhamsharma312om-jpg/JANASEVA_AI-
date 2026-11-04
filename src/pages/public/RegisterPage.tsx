@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { LanguageCode } from '../../types/janaseva';
 
 export const RegisterPage: React.FC = () => {
   const { registerCitizenAccount } = useApp();
+  const { t, setUiLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const [fullName, setFullName] = useState('');
@@ -12,7 +14,8 @@ export const RegisterPage: React.FC = () => {
   const [mobile, setMobile] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>('en');
+  const [preferredLanguage, setPreferredLanguage] =
+    useState<LanguageCode>('en');
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,15 +24,15 @@ export const RegisterPage: React.FC = () => {
     setError(null);
 
     if (!fullName.trim() || fullName.trim().length < 2) {
-      setError('Please enter your full name.');
+      setError(t('validation.fullNameRequired'));
       return;
     }
     if (!email.trim() || !email.includes('@')) {
-      setError('Please enter a valid email address.');
+      setError(t('validation.invalidEmail'));
       return;
     }
     if (!mobile.trim() || mobile.replace(/\D/g, '').length < 10) {
-      setError('Please enter a valid 10-digit mobile number.');
+      setError(t('validation.invalidMobile'));
       return;
     }
     if (password.length < 6) {
@@ -51,6 +54,7 @@ export const RegisterPage: React.FC = () => {
       mobile,
       preferred_language: preferredLanguage,
     });
+    setUiLanguage(preferredLanguage);
     navigate('/citizen/dashboard');
   };
 
@@ -58,11 +62,10 @@ export const RegisterPage: React.FC = () => {
     <div className="max-w-xl w-full mx-auto px-6 py-12">
       <div className="jana-card p-8">
         <h1 className="text-2xl font-bold text-[#102A56]">
-          Create Citizen Account
+          {t('register.title')}
         </h1>
         <p className="text-xs text-[#63718A] mt-1 mb-6">
-          Register to manage your civic complaints, track department updates, and
-          customize language preferences.
+          {t('register.subtitle')}
         </p>
 
         {error && (
@@ -74,7 +77,7 @@ export const RegisterPage: React.FC = () => {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-              Full Name *
+              {t('register.fullName')}
             </label>
             <input
               type="text"
@@ -88,7 +91,7 @@ export const RegisterPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Email Address *
+                {t('register.email')}
               </label>
               <input
                 type="email"
@@ -101,7 +104,7 @@ export const RegisterPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Mobile Number *
+                {t('register.mobile')}
               </label>
               <input
                 type="tel"
@@ -115,7 +118,7 @@ export const RegisterPage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-              Preferred Language *
+              {t('register.preferredLanguage')}
             </label>
             <select
               value={preferredLanguage}
@@ -133,7 +136,7 @@ export const RegisterPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Password *
+                {t('register.password')}
               </label>
               <input
                 type="password"
@@ -146,7 +149,7 @@ export const RegisterPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Confirm Password *
+                {t('register.confirmPassword')}
               </label>
               <input
                 type="password"
@@ -175,17 +178,17 @@ export const RegisterPage: React.FC = () => {
             type="submit"
             className="jana-btn-accent w-full py-2.5 px-4 text-sm font-semibold rounded-xl cursor-pointer"
           >
-            Create Account
+            {t('register.createBtn')}
           </button>
         </form>
 
         <div className="mt-6 pt-5 border-t border-sky-200/70 text-xs text-[#63718A] text-center">
-          Already have an account?{' '}
+          {t('register.alreadyHaveAccount')}{' '}
           <Link
             to="/login"
             className="text-[#1D4ED8] font-semibold hover:underline"
           >
-            Sign In
+            {t('register.signIn')}
           </Link>
         </div>
       </div>

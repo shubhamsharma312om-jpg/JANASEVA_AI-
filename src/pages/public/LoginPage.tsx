@@ -2,9 +2,11 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, ShieldCheck, UserCheck } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 
 export const LoginPage: React.FC = () => {
   const { loginAsDemo, loginWithCredentials } = useApp();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   const [identifier, setIdentifier] = useState('citizen@janaseva.demo');
@@ -47,10 +49,10 @@ export const LoginPage: React.FC = () => {
       {/* Left Column: Login Form */}
       <div className="md:col-span-7 jana-card p-8">
         <h1 className="text-2xl font-bold text-[#102A56]">
-          Sign In to JANASEVA AI
+          {t('login.title')}
         </h1>
         <p className="text-xs text-[#63718A] mt-1 mb-6">
-          Access your Citizen Grievance Dashboard or Municipal Administration Console.
+          {t('login.subtitle')}
         </p>
 
         {error && (
@@ -72,7 +74,7 @@ export const LoginPage: React.FC = () => {
               htmlFor="login-identifier"
               className="block text-xs font-semibold text-[#102A56] mb-1.5"
             >
-              Email or Mobile Number
+              {t('login.emailOrMobile')}
             </label>
             <input
               id="login-identifier"
@@ -89,7 +91,7 @@ export const LoginPage: React.FC = () => {
               htmlFor="login-password"
               className="block text-xs font-semibold text-[#102A56] mb-1.5"
             >
-              Password
+              {t('login.password')}
             </label>
             <div className="relative">
               <input
@@ -97,7 +99,7 @@ export const LoginPage: React.FC = () => {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
+                placeholder={t('login.password')}
                 className="w-full px-3.5 py-2.5 pr-10 text-sm bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
               />
               <button
@@ -123,7 +125,7 @@ export const LoginPage: React.FC = () => {
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className="rounded border-sky-300"
               />
-              <span>Remember me</span>
+              <span>{t('login.rememberMe')}</span>
             </label>
 
             <button
@@ -131,7 +133,7 @@ export const LoginPage: React.FC = () => {
               onClick={() => setForgotNotice(true)}
               className="text-[#1D4ED8] hover:underline font-medium cursor-pointer"
             >
-              Forgot password?
+              {t('login.forgotPassword')}
             </button>
           </div>
 
@@ -139,17 +141,17 @@ export const LoginPage: React.FC = () => {
             type="submit"
             className="jana-btn-primary w-full py-2.5 px-4 text-sm font-semibold rounded-xl cursor-pointer"
           >
-            Login
+            {t('login.signInBtn')}
           </button>
         </form>
 
         <div className="mt-6 pt-5 border-t border-sky-200/70 text-xs text-[#63718A] text-center">
-          Don&apos;t have a citizen account yet?{' '}
+          {t('login.noAccount')}{' '}
           <Link
             to="/register"
             className="text-[#1D4ED8] font-semibold hover:underline"
           >
-            Create an account
+            {t('login.createAccount')}
           </Link>
         </div>
       </div>
@@ -158,11 +160,10 @@ export const LoginPage: React.FC = () => {
       <div className="md:col-span-5 jana-card p-6 space-y-5">
         <div>
           <h2 className="text-base font-bold text-[#102A56]">
-            One-Click Demo Login
+            {t('login.quickDemoTitle')}
           </h2>
           <p className="text-xs text-[#63718A] mt-1">
-            Simulated role-based authentication for evaluating Citizen and
-            Municipal Admin workflows.
+            {t('login.quickDemoDesc')}
           </p>
         </div>
 
@@ -170,7 +171,7 @@ export const LoginPage: React.FC = () => {
           <div className="p-4 rounded-xl border border-sky-200/80 bg-[#FFFCF7] space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#102A56]">
               <UserCheck className="w-4 h-4 text-[#1D4ED8]" />
-              <span>Citizen Demo Account</span>
+              <span>{t('login.citizenDemo')}</span>
             </div>
             <div className="text-xs font-mono text-[#63718A]">
               citizen@janaseva.demo
@@ -180,14 +181,14 @@ export const LoginPage: React.FC = () => {
               onClick={() => handleQuickDemo('citizen')}
               className="jana-btn-primary w-full py-2 px-3 text-xs font-semibold rounded-xl cursor-pointer"
             >
-              Open Citizen Dashboard →
+              {t('login.openCitizenDashboard')}
             </button>
           </div>
 
           <div className="p-4 rounded-xl border border-sky-200/80 bg-[#FFFCF7] space-y-2.5">
             <div className="flex items-center gap-2 text-xs font-semibold text-[#102A56]">
               <ShieldCheck className="w-4 h-4 text-[#EA580C]" />
-              <span>Admin Demo Account</span>
+              <span>{t('login.adminDemo')}</span>
             </div>
             <div className="text-xs font-mono text-[#63718A]">
               admin@janaseva.demo
@@ -197,16 +198,10 @@ export const LoginPage: React.FC = () => {
               onClick={() => handleQuickDemo('admin')}
               className="jana-btn-accent w-full py-2 px-3 text-xs font-semibold rounded-xl cursor-pointer"
             >
-              Open Admin Dashboard →
+              {t('login.openAdminDashboard')}
             </button>
           </div>
         </div>
-
-        <p className="text-[11px] text-[#63718A] leading-relaxed border-t border-sky-200/70 pt-3">
-          Note: Demo authentication is simulated in the client session for
-          hackathon demonstration and does not represent production
-          cryptographic authentication.
-        </p>
       </div>
     </div>
   );

@@ -14,10 +14,13 @@ import {
   X,
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { DashboardMistBackground } from '../common/DashboardMistBackground';
+import { LanguageSelector } from '../common/LanguageSelector';
 
 export const AdminLayout: React.FC = () => {
   const { user, loginAsDemo, logout, backendConnected } = useApp();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
@@ -35,12 +38,24 @@ export const AdminLayout: React.FC = () => {
   };
 
   const navItems = [
-    { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { to: '/admin/complaints', label: 'All Complaints', icon: ClipboardList },
-    { to: '/admin/departments', label: 'Departments', icon: Building2 },
-    { to: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
-    { to: '/admin/users', label: 'User Management', icon: Users },
-    { to: '/admin/settings', label: 'Settings', icon: Settings },
+    {
+      to: '/admin/dashboard',
+      label: t('nav.dashboard'),
+      icon: LayoutDashboard,
+    },
+    {
+      to: '/admin/complaints',
+      label: t('nav.allComplaints'),
+      icon: ClipboardList,
+    },
+    {
+      to: '/admin/departments',
+      label: t('nav.departments'),
+      icon: Building2,
+    },
+    { to: '/admin/analytics', label: t('nav.analytics'), icon: BarChart3 },
+    { to: '/admin/users', label: t('nav.userManagement'), icon: Users },
+    { to: '/admin/settings', label: t('nav.settings'), icon: Settings },
   ];
 
   const desktopLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -81,16 +96,16 @@ export const AdminLayout: React.FC = () => {
                 to="/"
                 className="text-lg font-bold tracking-tight text-white block truncate"
               >
-                JANASEVA AI
+                {t('app.name')}
               </Link>
               <p className="text-xs text-sky-300/90 mt-0.5 truncate">
-                Municipal Command Center
+                {t('app.portal.admin')}
               </p>
             </div>
           ) : (
             <Link
               to="/"
-              title="JANASEVA AI Municipal Command Center"
+              title={t('app.portal.admin')}
               className="w-9 h-9 rounded-xl jana-btn-accent flex items-center justify-center font-bold text-sm"
             >
               JS
@@ -140,7 +155,9 @@ export const AdminLayout: React.FC = () => {
                 <Icon className="w-4 h-4 shrink-0" />
                 <span
                   className={`transition-all duration-200 overflow-hidden ${
-                    desktopCollapsed ? 'w-0 opacity-0 hidden' : 'w-auto opacity-100'
+                    desktopCollapsed
+                      ? 'w-0 opacity-0 hidden'
+                      : 'w-auto opacity-100'
                   }`}
                 >
                   {item.label}
@@ -164,13 +181,13 @@ export const AdminLayout: React.FC = () => {
           <button
             type="button"
             onClick={handleLogout}
-            title={desktopCollapsed ? 'Logout' : undefined}
+            title={desktopCollapsed ? t('common.logout') : undefined}
             className={`w-full flex items-center ${
               desktopCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5'
             } py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-slate-800 transition-colors cursor-pointer`}
           >
             <LogOut className="w-4 h-4 shrink-0" />
-            {!desktopCollapsed && <span>Logout</span>}
+            {!desktopCollapsed && <span>{t('common.logout')}</span>}
           </button>
         </div>
       </aside>
@@ -195,10 +212,10 @@ export const AdminLayout: React.FC = () => {
           <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
             <div>
               <span className="text-lg font-bold text-white block">
-                JANASEVA AI
+                {t('app.name')}
               </span>
               <span className="text-xs text-sky-300">
-                Municipal Command Center
+                {t('app.portal.admin')}
               </span>
             </div>
             <button
@@ -226,14 +243,15 @@ export const AdminLayout: React.FC = () => {
               );
             })}
           </nav>
-          <div className="p-4 border-t border-slate-800">
+          <div className="p-4 border-t border-slate-800 space-y-3">
+            <LanguageSelector variant="dark" className="w-full justify-center" />
             <button
               type="button"
               onClick={handleLogout}
               className="w-full flex items-center gap-3 px-3.5 py-2 rounded-xl text-sm font-medium text-red-400 hover:bg-slate-800 cursor-pointer"
             >
               <LogOut className="w-4 h-4" />
-              <span>Logout</span>
+              <span>{t('common.logout')}</span>
             </button>
           </div>
         </aside>
@@ -241,9 +259,8 @@ export const AdminLayout: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="relative z-10 flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-20 bg-[#FFFCF7]/85 backdrop-blur-md border-b border-sky-200/70 px-6 py-3.5 flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-20 bg-[#FFFCF7]/85 backdrop-blur-md border-b border-sky-200/70 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            {/* Mobile Hamburger Button */}
             <button
               type="button"
               onClick={() => setMobileDrawerOpen(true)}
@@ -253,7 +270,6 @@ export const AdminLayout: React.FC = () => {
               <Menu className="w-5 h-5" />
             </button>
 
-            {/* Desktop Expand/Collapse Sidebar Hamburger Button */}
             <button
               type="button"
               onClick={() => setDesktopCollapsed((prev) => !prev)}
@@ -266,11 +282,10 @@ export const AdminLayout: React.FC = () => {
 
             <div className="text-xs text-[#63718A] font-medium">
               <span className="text-[#102A56] font-semibold">
-                Hyderabad Municipal Administration
+                {t('nav.municipalAdmin')}
               </span>
               <span className="mx-2">·</span>
               <span>
-                Data Source:{' '}
                 {backendConnected
                   ? 'SQLite (janaseva.db) + Demo Records'
                   : 'Local Demo Persistence'}
@@ -279,12 +294,13 @@ export const AdminLayout: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
+            <LanguageSelector variant="light" />
             <Link
               to="/citizen/dashboard"
               onClick={() => loginAsDemo('citizen')}
               className="jana-btn-secondary px-3.5 py-1.5 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0"
             >
-              Switch to Citizen View
+              {t('nav.switchToCitizen')}
             </Link>
           </div>
         </header>

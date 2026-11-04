@@ -31,12 +31,15 @@ interface AppContextValue {
   submitComplaint: (payload: {
     language: LanguageCode;
     description: string;
+    originalTranscript?: string;
     category: GrievanceCategory;
     location: string;
     locality: string;
     landmark: string;
     contact?: string;
+    citizenName?: string;
     priority?: PriorityLevel;
+    confidenceScore?: number;
   }) => Promise<{ grievance: GrievanceRecord; fromBackend: boolean }>;
   updateComplaintByAdmin: (
     ticketId: string,
@@ -246,12 +249,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
   const submitComplaint = async (payload: {
     language: LanguageCode;
     description: string;
+    originalTranscript?: string;
     category: GrievanceCategory;
     location: string;
     locality: string;
     landmark: string;
     contact?: string;
+    citizenName?: string;
     priority?: PriorityLevel;
+    confidenceScore?: number;
   }) => {
     const activeCitizenId = user?.id || 'CIT-2026-DEMO01';
     const locationString = [
@@ -262,19 +268,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({
       .filter(Boolean)
       .join(', ');
 
-    const combinedMessage = locationString
-      ? `${payload.description.trim()} | Location: ${locationString}`
-      : payload.description.trim();
+    const baseDescription = payload.description.trim();
+    const combinedMessage =
+      locationString && !baseDescription.includes(locationString)
+        ? `${baseDescription} | Location: ${locationString}`
+        : baseDescription;
 
     const result = await apiService.createGrievance({
       original_message: combinedMessage,
+      translated_message:
+        payload.originalTranscript &&
+        payload.originalTranscript.trim() !== baseDescription
+          ? payload.originalTranscript.trim()
+          : undefined,
       category: payload.category,
       language: payload.language,
       priority: payload.priority || 'MEDIUM',
+      confidence_score: payload.confidenceScore ?? 1.0,
       citizen_id: activeCitizenId,
-      citizen_name: user?.name || 'Anonymous Citizen',
+      citizen_name:
+        payload.citizenName?.trim() || user?.name || 'Anonymous Citizen',
       citizen_contact:
-        payload.contact ||
+        payload.contact?.trim() ||
         (user ? `${user.email} | ${user.mobile}` : undefined),
     });
 

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   formatDateShort,
   formatStatusLabel,
@@ -13,6 +14,13 @@ const PAGE_SIZE = 5;
 
 export const AdminComplaintsPage: React.FC = () => {
   const { grievances, departments } = useApp();
+  const {
+    t,
+    translateCategory,
+    translateDepartment,
+    translateStatus,
+    translatePriority,
+  } = useLanguage();
 
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('ALL');
@@ -77,11 +85,10 @@ export const AdminComplaintsPage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-sky-200/70">
           <div>
             <h1 className="text-xl font-bold text-[#102A56]">
-              All Citizen Complaints
+              {t('admin.complaints.title')}
             </h1>
             <p className="text-xs text-[#63718A] mt-0.5">
-              Filter, triage, and manage all civic grievances across Hyderabad (
-              {filtered.length} matching records).
+              {t('admin.complaints.subtitle')} ({filtered.length})
             </p>
           </div>
           <button
@@ -89,7 +96,7 @@ export const AdminComplaintsPage: React.FC = () => {
             onClick={resetFilters}
             className="jana-btn-secondary px-3.5 py-1.5 text-xs font-semibold rounded-xl cursor-pointer self-start sm:self-auto"
           >
-            Reset Filters
+            {t('admin.resetFilters')}
           </button>
         </div>
 
@@ -102,7 +109,7 @@ export const AdminComplaintsPage: React.FC = () => {
               setSearch(e.target.value);
               setPage(1);
             }}
-            placeholder="Search Ticket, Citizen..."
+            placeholder={t('myComplaints.searchPlaceholder')}
             className="px-3 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
           />
 
@@ -114,14 +121,26 @@ export const AdminComplaintsPage: React.FC = () => {
             }}
             className="px-3 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl"
           >
-            <option value="ALL">All Categories</option>
-            <option value="Water Supply">Water Supply</option>
-            <option value="Roads and Potholes">Roads and Potholes</option>
-            <option value="Garbage Collection">Garbage Collection</option>
-            <option value="Electricity">Electricity</option>
-            <option value="Streetlights">Streetlights</option>
-            <option value="Drainage">Drainage</option>
-            <option value="Public Safety">Public Safety</option>
+            <option value="ALL">{t('myComplaints.allCategories')}</option>
+            <option value="Water Supply">
+              {translateCategory('Water Supply')}
+            </option>
+            <option value="Roads and Potholes">
+              {translateCategory('Roads and Potholes')}
+            </option>
+            <option value="Garbage Collection">
+              {translateCategory('Garbage Collection')}
+            </option>
+            <option value="Electricity">
+              {translateCategory('Electricity')}
+            </option>
+            <option value="Streetlights">
+              {translateCategory('Streetlights')}
+            </option>
+            <option value="Drainage">{translateCategory('Drainage')}</option>
+            <option value="Public Safety">
+              {translateCategory('Public Safety')}
+            </option>
           </select>
 
           <select
@@ -132,10 +151,10 @@ export const AdminComplaintsPage: React.FC = () => {
             }}
             className="px-3 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl"
           >
-            <option value="ALL">All Departments</option>
+            <option value="ALL">{t('admin.allDepartments')}</option>
             {departments.map((d) => (
               <option key={d.department_id} value={d.department_name}>
-                {d.department_name}
+                {translateDepartment(d.department_name)}
               </option>
             ))}
           </select>
@@ -148,12 +167,12 @@ export const AdminComplaintsPage: React.FC = () => {
             }}
             className="px-3 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN PROGRESS">In Progress</option>
-            <option value="RESOLVED">Resolved</option>
-            <option value="REJECTED">Rejected</option>
+            <option value="ALL">{t('myComplaints.allStatuses')}</option>
+            <option value="SUBMITTED">{translateStatus('SUBMITTED')}</option>
+            <option value="ASSIGNED">{translateStatus('ASSIGNED')}</option>
+            <option value="IN PROGRESS">{translateStatus('IN_PROGRESS')}</option>
+            <option value="RESOLVED">{translateStatus('RESOLVED')}</option>
+            <option value="REJECTED">{translateStatus('REJECTED')}</option>
           </select>
 
           <select
@@ -164,11 +183,11 @@ export const AdminComplaintsPage: React.FC = () => {
             }}
             className="px-3 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl"
           >
-            <option value="ALL">All Priorities</option>
-            <option value="CRITICAL">CRITICAL</option>
-            <option value="HIGH">HIGH</option>
-            <option value="MEDIUM">MEDIUM</option>
-            <option value="LOW">LOW</option>
+            <option value="ALL">{t('admin.allPriorities')}</option>
+            <option value="CRITICAL">{translatePriority('CRITICAL')}</option>
+            <option value="HIGH">{translatePriority('HIGH')}</option>
+            <option value="MEDIUM">{translatePriority('MEDIUM')}</option>
+            <option value="LOW">{translatePriority('LOW')}</option>
           </select>
 
           <input
@@ -188,13 +207,13 @@ export const AdminComplaintsPage: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-sky-200/70 text-xs text-[#63718A]">
-                <th className="py-3 pr-4">Ticket ID</th>
-                <th className="py-3 px-4">Citizen</th>
-                <th className="py-3 px-4">Department &amp; Category</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 pl-4 text-right">Actions</th>
+                <th className="py-3 pr-4">{t('table.ticketId')}</th>
+                <th className="py-3 px-4">{t('table.citizen')}</th>
+                <th className="py-3 px-4">{t('table.categoryAndDept')}</th>
+                <th className="py-3 px-4">{t('table.priority')}</th>
+                <th className="py-3 px-4">{t('table.date')}</th>
+                <th className="py-3 px-4">{t('table.status')}</th>
+                <th className="py-3 pl-4 text-right">{t('table.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-100 text-xs">
@@ -217,7 +236,7 @@ export const AdminComplaintsPage: React.FC = () => {
                     </td>
                     <td className="py-3.5 px-4 whitespace-nowrap">
                       <div className="font-medium text-[#102A56]">
-                        {item.citizen_name || 'Anonymous Citizen'}
+                        {item.citizen_name || t('common.anonymousCitizen')}
                       </div>
                       <div className="font-mono text-[#63718A]">
                         {item.citizen_id}
@@ -234,10 +253,10 @@ export const AdminComplaintsPage: React.FC = () => {
                         </div>
                         <div>
                           <div className="font-semibold text-[#102A56]">
-                            {item.predicted_category}
+                            {translateCategory(item.predicted_category)}
                           </div>
                           <div className="text-[11px] text-[#1D4ED8] font-medium">
-                            {item.assigned_department}
+                            {translateDepartment(item.assigned_department)}
                           </div>
                         </div>
                       </div>
@@ -247,7 +266,7 @@ export const AdminComplaintsPage: React.FC = () => {
                         item.priority
                       )}`}
                     >
-                      {item.priority}
+                      {translatePriority(item.priority)}
                     </td>
                     <td className="py-3.5 px-4 font-mono text-[#63718A] tabular-nums whitespace-nowrap">
                       {formatDateShort(item.created_at)}
@@ -257,14 +276,14 @@ export const AdminComplaintsPage: React.FC = () => {
                         item.status
                       )}`}
                     >
-                      {formatStatusLabel(item.status)}
+                      {translateStatus(item.status)}
                     </td>
                     <td className="py-3.5 pl-4 text-right whitespace-nowrap">
                       <Link
                         to={`/admin/complaints/${item.ticket_id}`}
                         className="jana-btn-primary px-3 py-1.5 text-xs font-semibold rounded-lg inline-block"
                       >
-                        Manage Ticket
+                        {t('common.manageTicket')}
                       </Link>
                     </td>
                   </tr>
@@ -273,7 +292,7 @@ export const AdminComplaintsPage: React.FC = () => {
               {paginated.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-[#63718A]">
-                    No complaints match the selected filters.
+                    {t('myComplaints.empty')}
                   </td>
                 </tr>
               )}
@@ -284,15 +303,15 @@ export const AdminComplaintsPage: React.FC = () => {
         {/* Pagination Bar */}
         <div className="mt-6 pt-4 border-t border-sky-200/70 flex items-center justify-between text-xs text-[#63718A]">
           <div>
-            Showing page{' '}
+            Page{' '}
             <span className="font-mono font-semibold text-[#102A56]">
               {currentPage}
             </span>{' '}
-            of{' '}
+            / {' '}
             <span className="font-mono font-semibold text-[#102A56]">
               {totalPages}
             </span>{' '}
-            ({filtered.length} total complaints)
+            ({filtered.length})
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -301,7 +320,7 @@ export const AdminComplaintsPage: React.FC = () => {
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="jana-btn-secondary px-3 py-1.5 rounded-lg disabled:opacity-40 cursor-pointer"
             >
-              Previous
+              {t('common.previous')}
             </button>
             <button
               type="button"
@@ -309,7 +328,7 @@ export const AdminComplaintsPage: React.FC = () => {
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               className="jana-btn-secondary px-3 py-1.5 rounded-lg disabled:opacity-40 cursor-pointer"
             >
-              Next
+              {t('common.next')}
             </button>
           </div>
         </div>

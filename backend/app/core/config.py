@@ -1,13 +1,13 @@
 """
 Application configuration and configurable grievance category-to-department mapping loader.
-Designed so routing mappings, language settings, and Sarvam AI Saaras v4 configuration
-can be updated via environment variables without code changes.
+Designed so routing mappings, language settings, Sarvam AI Saaras v4 configuration,
+and the Intelligent Grievance Understanding Engine can be updated via environment variables.
 """
 
 import json
 import os
 from pathlib import Path
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 MAPPING_FILE_PATH = Path(__file__).resolve().parent / "department_mapping.json"
@@ -46,7 +46,7 @@ class Settings:
     TAGLINE: str = "Every Voice Matters. Every Grievance Counts."
     HACKATHON: str = "Neural Storm 2026"
     TRACK: str = "Human Impact (HI-02)"
-    VERSION: str = os.getenv("PROJECT_VERSION", "0.1.0-phase1")
+    VERSION: str = os.getenv("PROJECT_VERSION", "0.2.0-ai-engine")
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "development")
     PILOT_LOCATION: str = os.getenv("PILOT_LOCATION", "Hyderabad")
 
@@ -75,6 +75,31 @@ class Settings:
     )
     SARVAM_LANGUAGE_CODES: List[str] = SARVAM_SUPPORTED_LANGUAGE_CODES
 
+    # Intelligent Grievance Understanding Engine Configuration (Backend-Only Secrets)
+    AI_MODEL_PROVIDER: str = os.getenv("AI_MODEL_PROVIDER", "gemini").strip().lower()
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "").strip()
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.8-flash").strip()
+    GEMINI_TIMEOUT_SECONDS: int = int(os.getenv("GEMINI_TIMEOUT_SECONDS", "18"))
+    GEMINI_MAX_RETRIES: int = int(os.getenv("GEMINI_MAX_RETRIES", "1"))
+
+    # Configurable Confidence Thresholds (Calibrated Engineering Thresholds)
+    CONFIDENCE_HIGH_THRESHOLD: float = float(
+        os.getenv("CONFIDENCE_HIGH_THRESHOLD", "0.80")
+    )
+    CONFIDENCE_MEDIUM_THRESHOLD: float = float(
+        os.getenv("CONFIDENCE_MEDIUM_THRESHOLD", "0.60")
+    )
+
+    # Supported Grievance Intent Classification Values
+    SUPPORTED_INTENT_TYPES: List[str] = [
+        "CIVIC_GRIEVANCE",
+        "GREETING",
+        "GENERAL_QUESTION",
+        "UNRELATED_QUERY",
+        "AMBIGUOUS_REQUEST",
+        "EMERGENCY_OR_IMMEDIATE_DANGER",
+    ]
+
     CORS_ORIGINS: List[str] = os.getenv(
         "CORS_ORIGINS", "http://localhost:3000,http://localhost:5173"
     ).split(",")
@@ -88,6 +113,19 @@ class Settings:
             and key not in (
                 "YOUR_SARVAM_API_KEY",
                 "MY_SARVAM_API_KEY",
+                "placeholder",
+            )
+        )
+
+    @classmethod
+    def is_gemini_configured(cls) -> bool:
+        """Return True if a real GEMINI_API_KEY is present in the backend environment."""
+        key = os.getenv("GEMINI_API_KEY", cls.GEMINI_API_KEY).strip()
+        return bool(
+            key
+            and key not in (
+                "MY_GEMINI_API_KEY",
+                "YOUR_GEMINI_API_KEY",
                 "placeholder",
             )
         )
@@ -106,6 +144,20 @@ class Settings:
             item["category"]: item["department_name"]
             for item in data.get("mappings", [])
         }
+
+    @classmethod
+    def get_all_department_records(cls) -> List[Dict[str, Any]]:
+        """Return all 7 configured department mapping records from department_mapping.json."""
+        data = cls.load_department_mappings()
+        return list(data.get("mappings", []))
+
+    @classmethod
+    def get_department_record_by_category(cls, category: str) -> Optional[Dict[str, Any]]:
+        """Return the full mapping dictionary for a given category name."""
+        for item in cls.get_all_department_records():
+            if item["category"].lower() == (category or "").strip().lower():
+                return item
+        return None
 
 
 settings = Settings()

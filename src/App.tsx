@@ -6,6 +6,7 @@
 import React from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import { LanguageProvider } from './i18n/LanguageContext';
 import { PublicLayout } from './components/common/PublicLayout';
 import { CitizenLayout } from './components/citizen/CitizenLayout';
 import { AdminLayout } from './components/admin/AdminLayout';
@@ -37,62 +38,64 @@ import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          {/* PUBLIC WEBSITE ROUTES */}
-          <Route element={<PublicLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/track" element={<TrackComplaintPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/contact" element={<ContactPage />} />
-          </Route>
+    <LanguageProvider>
+      <AppProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* PUBLIC WEBSITE ROUTES */}
+            <Route element={<PublicLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/track" element={<TrackComplaintPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/contact" element={<ContactPage />} />
+            </Route>
 
-          {/* CITIZEN DASHBOARD ROUTES */}
-          <Route path="/citizen" element={<CitizenLayout />}>
-            <Route
-              index
-              element={<Navigate to="/citizen/dashboard" replace />}
-            />
-            <Route
-              path="dashboard"
-              element={<CitizenDashboardPage />}
-            />
-            <Route path="complaints" element={<MyComplaintsPage />} />
-            <Route
-              path="complaints/:ticketId"
-              element={<CitizenComplaintDetailsPage />}
-            />
-            <Route path="register" element={<RegisterComplaintPage />} />
-            <Route path="track" element={<TrackComplaintPage />} />
-            <Route path="profile" element={<CitizenProfilePage />} />
-            <Route path="settings" element={<CitizenSettingsPage />} />
-          </Route>
+            {/* CITIZEN DASHBOARD ROUTES */}
+            <Route path="/citizen" element={<CitizenLayout />}>
+              <Route
+                index
+                element={<Navigate to="/citizen/dashboard" replace />}
+              />
+              <Route
+                path="dashboard"
+                element={<CitizenDashboardPage />}
+              />
+              <Route path="complaints" element={<MyComplaintsPage />} />
+              <Route
+                path="complaints/:ticketId"
+                element={<CitizenComplaintDetailsPage />}
+              />
+              <Route path="register" element={<RegisterComplaintPage />} />
+              <Route path="track" element={<TrackComplaintPage />} />
+              <Route path="profile" element={<CitizenProfilePage />} />
+              <Route path="settings" element={<CitizenSettingsPage />} />
+            </Route>
 
-          {/* ADMIN DASHBOARD ROUTES */}
-          <Route path="/admin" element={<AdminLayout />}>
-            <Route
-              index
-              element={<Navigate to="/admin/dashboard" replace />}
-            />
-            <Route path="dashboard" element={<AdminDashboardPage />} />
-            <Route path="complaints" element={<AdminComplaintsPage />} />
-            <Route
-              path="complaints/:ticketId"
-              element={<AdminComplaintDetailsPage />}
-            />
-            <Route path="departments" element={<AdminDepartmentsPage />} />
-            <Route path="analytics" element={<AdminAnalyticsPage />} />
-            <Route path="users" element={<AdminUsersPage />} />
-            <Route path="settings" element={<AdminSettingsPage />} />
-          </Route>
+            {/* ADMIN DASHBOARD ROUTES */}
+            <Route path="/admin" element={<AdminLayout />}>
+              <Route
+                index
+                element={<Navigate to="/admin/dashboard" replace />}
+              />
+              <Route path="dashboard" element={<AdminDashboardPage />} />
+              <Route path="complaints" element={<AdminComplaintsPage />} />
+              <Route
+                path="complaints/:ticketId"
+                element={<AdminComplaintDetailsPage />}
+              />
+              <Route path="departments" element={<AdminDepartmentsPage />} />
+              <Route path="analytics" element={<AdminAnalyticsPage />} />
+              <Route path="users" element={<AdminUsersPage />} />
+              <Route path="settings" element={<AdminSettingsPage />} />
+            </Route>
 
-          {/* FALLBACK */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AppProvider>
+            {/* FALLBACK */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AppProvider>
+    </LanguageProvider>
   );
 }

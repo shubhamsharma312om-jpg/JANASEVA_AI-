@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import { execFile } from 'child_process';
@@ -5,11 +6,248 @@ import { promisify } from 'util';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 
 const execFileAsync = promisify(execFile);
 const ROOT_DIR = process.cwd();
 const BACKEND_DIR = path.join(ROOT_DIR, 'backend');
 const DB_INIT_SCRIPT = path.join(BACKEND_DIR, 'app', 'database', 'init_db.py');
+
+const GEMINI_TIMEOUT_MS = Number(process.env.GEMINI_TIMEOUT_MS || 18000);
+const GEMINI_MAX_RETRIES = Number(process.env.GEMINI_MAX_RETRIES || 1);
+
+// In-flight deduplication map for identical concurrent analysis requests
+const inFlightAnalysisRequests = new Map<string, Promise<any>>();
+
+function isRealGeminiKeyConfigured(): boolean {
+  const key = (process.env.GEMINI_API_KEY || '').trim();
+  return Boolean(
+    key &&
+      key !== 'MY_GEMINI_API_KEY' &&
+      key !== 'YOUR_GEMINI_API_KEY' &&
+      key !== 'placeholder'
+  );
+}
+
+interface GeminiAttemptResult {
+  candidate: Record<string, any> | null;
+  provenance: {
+    gemini_attempted: boolean;
+    gemini_succeeded: boolean;
+    latency_ms: number;
+    model: string;
+    error_code: string | number | null;
+    error_message: string | null;
+  };
+}
+
+function isPermanentConfigError(err: any): boolean {
+  const status = err?.status || err?.code;
+  const msg = String(err?.message || '').toUpperCase();
+  if (status === 400 || status === 401 || status === 403 || status === 404) {
+    return true;
+  }
+  if (
+    msg.includes('API_KEY_INVALID') ||
+    msg.includes('PERMISSION_DENIED') ||
+    msg.includes('ACCESS_TOKEN_SCOPE_INSUFFICIENT')
+  ) {
+    return true;
+  }
+  return false;
+}
+
+async function tryGeminiGrievanceAnalysis(
+  transcript: string,
+  preferredLanguage?: string,
+  conversationContext?: Record<string, any> | null
+): Promise<GeminiAttemptResult> {
+  const modelName = (process.env.GEMINI_MODEL || 'gemini-3.8-flash').trim();
+  if (!isRealGeminiKeyConfigured()) {
+    return {
+      candidate: null,
+      provenance: {
+        gemini_attempted: false,
+        gemini_succeeded: false,
+        latency_ms: 0,
+        model: modelName,
+        error_code: 'MISSING_API_KEY',
+        error_message: 'GEMINI_API_KEY is not configured in server environment.',
+      },
+    };
+  }
+
+  const startTime = Date.now();
+  const ai = new GoogleGenAI({
+    apiKey: process.env.GEMINI_API_KEY,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
+    },
+  });
+
+  const contextSection =
+    conversationContext && conversationContext.original_transcript
+      ? `\nPrevious Citizen Grievance Statement:\n"""\n${conversationContext.original_transcript}\n"""\nPreviously Extracted Details: ${JSON.stringify(
+          {
+            department_category: conversationContext.department_category || null,
+            location: conversationContext.location || conversationContext.extracted_location || null,
+          }
+        )}\nCitizen Clarification Reply:\n"""\n${transcript}\n"""`
+      : `Citizen Message:\n"""\n${transcript}\n"""`;
+
+  const userPrompt = `${contextSection}\n${
+    preferredLanguage
+      ? `Preferred output language hint: ${preferredLanguage}`
+      : 'Preserve the exact language of the citizen (Telugu, Hindi, or English) for clarification_question and enhanced_complaint.'
+  }`;
+
+  const systemInstruction =
+    'You are JANASEVA AI, a multilingual civic grievance understanding assistant for Indian citizens (urban and rural).\n' +
+    'Your primary responsibility is to understand genuine civic complaints and help citizens prepare accurate grievance registrations.\n' +
+    'You must:\n' +
+    '1. Understand the citizen\'s actual meaning across English, Telugu, Hindi, Hinglish, and Telugu-English code-mixed inputs.\n' +
+    '2. Detect intent_type as one of: "CIVIC_GRIEVANCE", "GREETING", "GENERAL_QUESTION", "UNRELATED_QUERY", "AMBIGUOUS_REQUEST", "EMERGENCY_OR_IMMEDIATE_DANGER".\n' +
+    '   - Only "CIVIC_GRIEVANCE" and "EMERGENCY_OR_IMMEDIATE_DANGER" have is_valid_grievance = true.\n' +
+    '   - For "GREETING", "GENERAL_QUESTION", "UNRELATED_QUERY", or "AMBIGUOUS_REQUEST", set is_valid_grievance = false, department_category = null, enhanced_complaint = "", and write a polite, helpful response or clarification question in the citizen\'s language in clarification_question.\n' +
+    '3. For genuine civic grievances, classify department_category strictly into one of these 7 exact categories:\n' +
+    '   - "Water Supply"\n' +
+    '   - "Roads and Potholes"\n' +
+    '   - "Garbage Collection"\n' +
+    '   - "Electricity"\n' +
+    '   - "Streetlights"\n' +
+    '   - "Drainage"\n' +
+    '   - "Public Safety"\n' +
+    '4. Extract ONLY explicitly stated information. Never invent a citizen name, mobile number, email, street, village, city, landmark, incident date, or duration. Return null for any unstated field.\n' +
+    '5. Do NOT treat generic phrases like "our street", "our area", "main road", "the main road", or "nearby place" as actual street, area, or landmark names (leave them null).\n' +
+    '6. Identify multiple separate civic issues in secondary_categories when more than one civic problem is reported.\n' +
+    '7. Assess priority responsibly as "low", "normal", "high", or "critical" based on public health impact, safety risk, duration, and affected population. For "EMERGENCY_OR_IMMEDIATE_DANGER" (e.g., live electric wire on road, open manhole), set priority = "critical" and include a clear safety_advisory.\n' +
+    '8. Generate a concise, grammatical, formal enhanced_complaint in the citizen\'s language without adding unsupported facts or promising government resolution.';
+
+  let lastError: any = null;
+  const maxAttempts = Math.max(1, 1 + GEMINI_MAX_RETRIES);
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      const geminiPromise = ai.models.generateContent({
+        model: modelName,
+        contents: userPrompt,
+        config: {
+          systemInstruction,
+          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              intent_type: { type: Type.STRING },
+              is_valid_grievance: { type: Type.BOOLEAN },
+              detected_language: { type: Type.STRING },
+              citizen_name: { type: Type.STRING, nullable: true },
+              contact_number: { type: Type.STRING, nullable: true },
+              email: { type: Type.STRING, nullable: true },
+              designation: { type: Type.STRING, nullable: true },
+              problem_summary: { type: Type.STRING },
+              problem_description: { type: Type.STRING },
+              location: {
+                type: Type.OBJECT,
+                properties: {
+                  village: { type: Type.STRING, nullable: true },
+                  town: { type: Type.STRING, nullable: true },
+                  city: { type: Type.STRING, nullable: true },
+                  district: { type: Type.STRING, nullable: true },
+                  mandal: { type: Type.STRING, nullable: true },
+                  ward: { type: Type.STRING, nullable: true },
+                  area: { type: Type.STRING, nullable: true },
+                  street: { type: Type.STRING, nullable: true },
+                  house_number: { type: Type.STRING, nullable: true },
+                  landmark: { type: Type.STRING, nullable: true },
+                  pincode: { type: Type.STRING, nullable: true },
+                  additional_location_details: {
+                    type: Type.STRING,
+                    nullable: true,
+                  },
+                },
+              },
+              problem_duration: { type: Type.STRING, nullable: true },
+              incident_date: { type: Type.STRING, nullable: true },
+              affected_people: { type: Type.STRING, nullable: true },
+              department_category: { type: Type.STRING, nullable: true },
+              classification_explanation: { type: Type.STRING, nullable: true },
+              confidence_score: { type: Type.NUMBER, nullable: true },
+              secondary_categories: {
+                type: Type.ARRAY,
+                items: { type: Type.STRING },
+                nullable: true,
+              },
+              priority: { type: Type.STRING },
+              priority_reason: { type: Type.STRING },
+              safety_advisory: { type: Type.STRING, nullable: true },
+              needs_clarification: { type: Type.BOOLEAN },
+              clarification_question: { type: Type.STRING, nullable: true },
+              enhanced_complaint: { type: Type.STRING },
+            },
+          },
+        },
+      });
+
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          const timeoutErr: any = new Error(
+            `Gemini API request timed out after ${GEMINI_TIMEOUT_MS}ms`
+          );
+          timeoutErr.code = 'GEMINI_TIMEOUT';
+          reject(timeoutErr);
+        }, GEMINI_TIMEOUT_MS);
+      });
+
+      const response = await Promise.race([geminiPromise, timeoutPromise]);
+      const text = (response.text ?? '').trim();
+      if (!text) {
+        throw new Error('Empty response text from Gemini model');
+      }
+      const parsed = JSON.parse(text);
+      return {
+        candidate: parsed,
+        provenance: {
+          gemini_attempted: true,
+          gemini_succeeded: true,
+          latency_ms: Date.now() - startTime,
+          model: modelName,
+          error_code: null,
+          error_message: null,
+        },
+      };
+    } catch (err: any) {
+      lastError = err;
+      const errCode = err?.status || err?.code || 'GEMINI_ERROR';
+      const errMsg = String(err?.message || 'Gemini analysis error').slice(0, 220);
+      console.warn(
+        `[JANASEVA AI] Gemini attempt ${attempt}/${maxAttempts} failed (${errCode}): ${errMsg}`
+      );
+      if (isPermanentConfigError(err) || attempt >= maxAttempts) {
+        break;
+      }
+      // Exponential backoff before retry
+      await new Promise((r) => setTimeout(r, 1200 * attempt));
+    }
+  }
+
+  return {
+    candidate: null,
+    provenance: {
+      gemini_attempted: true,
+      gemini_succeeded: false,
+      latency_ms: Date.now() - startTime,
+      model: modelName,
+      error_code: lastError?.status || lastError?.code || 'GEMINI_FAILED',
+      error_message: String(lastError?.message || 'Gemini request failed').slice(
+        0,
+        200
+      ),
+    },
+  };
+}
 
 /**
  * Execute a Python snippet with optional JSON stdin payload against `backend/janaseva.db`
@@ -381,7 +619,7 @@ else:
     }
   });
 
-  // 5. POST /api/grievances/ — Register a new grievance in SQLite using Phase 1 manual category mapping (no AI)
+  // 5. POST /api/grievances/ — Register a citizen-confirmed grievance in SQLite
   app.post(['/api/grievances', '/api/grievances/'], async (req, res) => {
     try {
       const pyScript = `
@@ -396,8 +634,12 @@ category = payload.get("category") or "Public Safety"
 cat_map = settings.get_category_to_department_map()
 assigned_dept = cat_map.get(category, "Relevant Civic Authority")
 
-lang = payload.get("language") or "en"
-if lang not in ("en", "te", "hi"):
+lang = (payload.get("language") or "en").strip().lower()
+if lang.startswith("te"):
+    lang = "te"
+elif lang.startswith("hi"):
+    lang = "hi"
+elif lang not in ("en", "te", "hi"):
     lang = "en"
 
 citizen_id = payload.get("citizen_id") or f"CIT-2026-{uuid.uuid4().hex[:6].upper()}"
@@ -405,15 +647,45 @@ citizen_name = payload.get("citizen_name")
 citizen_contact = payload.get("citizen_contact")
 
 ticket_id = payload.get("ticket_id") or f"JANA-HYD-2026-{uuid.uuid4().hex[:4].upper()}"
-priority = payload.get("priority") or "MEDIUM"
-if priority not in ("LOW", "MEDIUM", "HIGH", "CRITICAL"):
-    priority = "MEDIUM"
+raw_priority = str(payload.get("priority") or "MEDIUM").strip().upper()
+prio_map = {
+    "LOW": "LOW",
+    "NORMAL": "MEDIUM",
+    "MEDIUM": "MEDIUM",
+    "HIGH": "HIGH",
+    "CRITICAL": "CRITICAL",
+}
+priority = prio_map.get(raw_priority, "MEDIUM")
 
 original_message = payload.get("original_message", "").strip()
+translated_message = payload.get("translated_message")
+confidence_score = float(payload.get("confidence_score") or 1.0)
+confidence_score = max(0.0, min(1.0, confidence_score))
 
 conn = sqlite3.connect(str(settings.SQLITE_DB_PATH))
 conn.execute("PRAGMA foreign_keys = ON;")
+conn.row_factory = sqlite3.Row
 cur = conn.cursor()
+
+# Prevent duplicate grievance submissions from the same citizen with identical message
+cur.execute(
+    """
+    SELECT * FROM grievances
+    WHERE citizen_id = ? AND original_message = ? AND status = 'SUBMITTED'
+    ORDER BY created_at DESC LIMIT 1;
+    """,
+    (citizen_id, original_message)
+)
+existing_dup = cur.fetchone()
+if existing_dup:
+    dup_dict = dict(existing_dup)
+    cur.execute("SELECT * FROM grievance_history WHERE ticket_id = ? ORDER BY history_id ASC;", (dup_dict["ticket_id"],))
+    dup_dict["history"] = [dict(h) for h in cur.fetchall()]
+    dup_dict["citizen_name"] = citizen_name
+    dup_dict["citizen_contact"] = citizen_contact
+    conn.close()
+    print(json.dumps(dup_dict))
+    sys.exit(0)
 
 cur.execute(
     """
@@ -438,11 +710,11 @@ cur.execute(
         citizen_id,
         original_message,
         lang,
-        None,
+        translated_message,
         category,
         assigned_dept,
         priority,
-        1.0,
+        confidence_score,
         "SUBMITTED",
         now,
         now
@@ -458,13 +730,12 @@ cur.execute(
         ticket_id,
         None,
         "SUBMITTED",
-        f"Complaint registered and mapped to {assigned_dept} ({category}).",
+        f"Complaint confirmed by citizen and routed to {assigned_dept} ({category}).",
         now
     )
 )
 
 conn.commit()
-conn.row_factory = sqlite3.Row
 cur.execute("SELECT * FROM grievances WHERE ticket_id = ?;", (ticket_id,))
 created = dict(cur.fetchone())
 cur.execute("SELECT * FROM grievance_history WHERE ticket_id = ? ORDER BY history_id ASC;", (ticket_id,))
@@ -749,6 +1020,131 @@ print(json.dumps(result))
             // Ignore cleanup errors
           }
         }
+      }
+    }
+  );
+
+  // 12. GET /api/ai/status — Returns Intelligent Grievance Understanding Engine configuration status
+  app.get(['/api/ai/status', '/api/ai/status/'], async (_req, res) => {
+    try {
+      const pyScript = `
+import json
+from app.core.config import settings
+
+gemini_configured = settings.is_gemini_configured()
+sarvam_configured = settings.is_sarvam_configured()
+missing_vars = []
+if not gemini_configured:
+    missing_vars.append("GEMINI_API_KEY")
+if not sarvam_configured:
+    missing_vars.append("SARVAM_API_KEY")
+
+print(json.dumps({
+    "engine": "JANASEVA AI Intelligent Grievance Understanding Engine",
+    "configured_provider": settings.AI_MODEL_PROVIDER,
+    "gemini_model": settings.GEMINI_MODEL,
+    "gemini_api_configured": gemini_configured,
+    "sarvam_stt_model": settings.SARVAM_STT_MODEL,
+    "sarvam_api_configured": sarvam_configured,
+    "hybrid_python_validator_active": True,
+    "missing_environment_variables": missing_vars,
+    "supported_categories": [m["category"] for m in settings.get_all_department_records()]
+}))
+`;
+      const data = await runPythonWithPayload(pyScript);
+      res.status(200).json(data);
+    } catch (error: any) {
+      res.status(500).json({
+        detail: error?.message || 'Failed to inspect AI engine status',
+      });
+    }
+  });
+
+  // 13. POST /api/ai/analyze-grievance — Runs the Gemini-First + Python-Validated Grievance Understanding Pipeline
+  app.post(
+    ['/api/ai/analyze-grievance', '/api/ai/analyze-grievance/'],
+    async (req, res) => {
+      try {
+        const body = req.body || {};
+        const rawText =
+          typeof body.transcript === 'string' && body.transcript.trim()
+            ? body.transcript.trim()
+            : typeof body.complaint_text === 'string'
+              ? body.complaint_text.trim()
+              : '';
+        const transcript = rawText;
+        const preferredLanguage =
+          typeof body.preferred_language === 'string' &&
+          body.preferred_language.trim()
+            ? body.preferred_language.trim()
+            : undefined;
+        const conversationContext =
+          body.conversation_context &&
+          typeof body.conversation_context === 'object'
+            ? body.conversation_context
+            : null;
+
+        if (!transcript || transcript.length < 2) {
+          res.status(400).json({
+            detail: 'Please provide a complaint description to analyze.',
+          });
+          return;
+        }
+
+        const dedupeKey = JSON.stringify({
+          transcript,
+          preferredLanguage: preferredLanguage || null,
+          prevTranscript: conversationContext?.original_transcript || null,
+        });
+
+        let taskPromise = inFlightAnalysisRequests.get(dedupeKey);
+        if (!taskPromise) {
+          taskPromise = (async () => {
+            // Stage A: Invoke Gemini (`gemini-3.8-flash`) with timeout & retry if GEMINI_API_KEY is configured
+            const geminiAttempt = await tryGeminiGrievanceAnalysis(
+              transcript,
+              preferredLanguage,
+              conversationContext
+            );
+
+            // Stage B: Execute Python Validation, Department Verification, Anti-Hallucination & Fallback Pipeline
+            const pyScript = `
+import json, sys
+from app.ai_engine.pipeline import grievance_ai_pipeline
+
+payload = json.loads(sys.argv[1])
+result = grievance_ai_pipeline.analyze_grievance(
+    transcript=payload.get("transcript", ""),
+    preferred_language=payload.get("preferred_language"),
+    llm_candidate=payload.get("llm_candidate"),
+    llm_provenance=payload.get("llm_provenance"),
+    conversation_context=payload.get("conversation_context"),
+)
+print(json.dumps(result))
+`;
+            return await runPythonWithPayload(pyScript, {
+              transcript,
+              preferred_language: preferredLanguage || null,
+              llm_candidate: geminiAttempt.candidate,
+              llm_provenance: geminiAttempt.provenance,
+              conversation_context: conversationContext,
+            });
+          })();
+          inFlightAnalysisRequests.set(dedupeKey, taskPromise);
+        }
+
+        try {
+          const analyzed = await taskPromise;
+          res.status(200).json(analyzed);
+        } finally {
+          inFlightAnalysisRequests.delete(dedupeKey);
+        }
+      } catch (error: any) {
+        res.status(500).json({
+          detail:
+            error?.message ||
+            'Failed to analyze grievance transcript. Please review and try again.',
+        });
       }
     }
   );

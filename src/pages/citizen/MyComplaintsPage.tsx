@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import {
   formatDateShort,
   formatStatusLabel,
@@ -12,6 +13,13 @@ import { getVisualAssetForDepartmentOrCategory } from '../../utils/departmentAss
 
 export const MyComplaintsPage: React.FC = () => {
   const { user, grievances } = useApp();
+  const {
+    t,
+    translateCategory,
+    translateDepartment,
+    translateStatus,
+    translatePriority,
+  } = useLanguage();
   const citizenId = user?.id || 'CIT-2026-DEMO01';
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -52,17 +60,18 @@ export const MyComplaintsPage: React.FC = () => {
       <section className="jana-card p-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-sky-200/70">
           <div>
-            <h1 className="text-xl font-bold text-[#102A56]">My Complaints</h1>
+            <h1 className="text-xl font-bold text-[#102A56]">
+              {t('myComplaints.title')}
+            </h1>
             <p className="text-xs text-[#63718A] mt-0.5">
-              All civic grievances registered under your citizen profile (
-              {myComplaints.length} records).
+              {t('myComplaints.subtitle')} ({myComplaints.length})
             </p>
           </div>
           <Link
             to="/citizen/register"
             className="jana-btn-accent px-4 py-2 text-xs font-semibold rounded-xl whitespace-nowrap shrink-0"
           >
-            + Register New Complaint
+            + {t('nav.registerNewComplaint')}
           </Link>
         </div>
 
@@ -72,7 +81,7 @@ export const MyComplaintsPage: React.FC = () => {
             type="search"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by Ticket ID or keyword..."
+            placeholder={t('myComplaints.searchPlaceholder')}
             aria-label="Search by Ticket ID"
             className="px-3.5 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
           />
@@ -83,12 +92,12 @@ export const MyComplaintsPage: React.FC = () => {
             aria-label="Filter by Status"
             className="px-3.5 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
           >
-            <option value="ALL">All Statuses</option>
-            <option value="SUBMITTED">Submitted</option>
-            <option value="ASSIGNED">Assigned</option>
-            <option value="IN PROGRESS">In Progress</option>
-            <option value="RESOLVED">Resolved</option>
-            <option value="REJECTED">Rejected</option>
+            <option value="ALL">{t('myComplaints.allStatuses')}</option>
+            <option value="SUBMITTED">{translateStatus('SUBMITTED')}</option>
+            <option value="ASSIGNED">{translateStatus('ASSIGNED')}</option>
+            <option value="IN PROGRESS">{translateStatus('IN_PROGRESS')}</option>
+            <option value="RESOLVED">{translateStatus('RESOLVED')}</option>
+            <option value="REJECTED">{translateStatus('REJECTED')}</option>
           </select>
 
           <select
@@ -97,14 +106,26 @@ export const MyComplaintsPage: React.FC = () => {
             aria-label="Filter by Category"
             className="px-3.5 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
           >
-            <option value="ALL">All Categories</option>
-            <option value="Water Supply">Water Supply</option>
-            <option value="Roads and Potholes">Roads and Potholes</option>
-            <option value="Garbage Collection">Garbage Collection</option>
-            <option value="Electricity">Electricity</option>
-            <option value="Streetlights">Streetlights</option>
-            <option value="Drainage">Drainage</option>
-            <option value="Public Safety">Public Safety</option>
+            <option value="ALL">{t('myComplaints.allCategories')}</option>
+            <option value="Water Supply">
+              {translateCategory('Water Supply')}
+            </option>
+            <option value="Roads and Potholes">
+              {translateCategory('Roads and Potholes')}
+            </option>
+            <option value="Garbage Collection">
+              {translateCategory('Garbage Collection')}
+            </option>
+            <option value="Electricity">
+              {translateCategory('Electricity')}
+            </option>
+            <option value="Streetlights">
+              {translateCategory('Streetlights')}
+            </option>
+            <option value="Drainage">{translateCategory('Drainage')}</option>
+            <option value="Public Safety">
+              {translateCategory('Public Safety')}
+            </option>
           </select>
 
           <select
@@ -113,8 +134,8 @@ export const MyComplaintsPage: React.FC = () => {
             aria-label="Sort by Date"
             className="px-3.5 py-2 text-xs bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
           >
-            <option value="DESC">Sort by Date: Newest First</option>
-            <option value="ASC">Sort by Date: Oldest First</option>
+            <option value="DESC">{t('myComplaints.sortNewest')}</option>
+            <option value="ASC">{t('myComplaints.sortOldest')}</option>
           </select>
         </div>
 
@@ -123,13 +144,13 @@ export const MyComplaintsPage: React.FC = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="border-b border-sky-200/70 text-xs text-[#63718A]">
-                <th className="py-3 pr-4">Ticket ID</th>
-                <th className="py-3 px-4">Department &amp; Category</th>
-                <th className="py-3 px-4">Description</th>
-                <th className="py-3 px-4">Date</th>
-                <th className="py-3 px-4">Priority</th>
-                <th className="py-3 px-4">Status</th>
-                <th className="py-3 pl-4 text-right">Action</th>
+                <th className="py-3 pr-4">{t('table.ticketId')}</th>
+                <th className="py-3 px-4">{t('table.categoryAndDept')}</th>
+                <th className="py-3 px-4">{t('table.description')}</th>
+                <th className="py-3 px-4">{t('table.date')}</th>
+                <th className="py-3 px-4">{t('table.priority')}</th>
+                <th className="py-3 px-4">{t('table.status')}</th>
+                <th className="py-3 pl-4 text-right">{t('table.action')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-sky-100 text-xs">
@@ -157,10 +178,10 @@ export const MyComplaintsPage: React.FC = () => {
                         </div>
                         <div>
                           <div className="font-semibold text-[#102A56]">
-                            {item.predicted_category}
+                            {translateCategory(item.predicted_category)}
                           </div>
                           <div className="text-[11px] text-[#1D4ED8] font-medium">
-                            {item.assigned_department}
+                            {translateDepartment(item.assigned_department)}
                           </div>
                         </div>
                       </div>
@@ -176,21 +197,21 @@ export const MyComplaintsPage: React.FC = () => {
                         item.priority
                       )}`}
                     >
-                      {item.priority}
+                      {translatePriority(item.priority)}
                     </td>
                     <td
                       className={`py-3.5 px-4 whitespace-nowrap ${getStatusColorClass(
                         item.status
                       )}`}
                     >
-                      {formatStatusLabel(item.status)}
+                      {translateStatus(item.status)}
                     </td>
                     <td className="py-3.5 pl-4 text-right whitespace-nowrap">
                       <Link
                         to={`/citizen/complaints/${item.ticket_id}`}
                         className="jana-btn-primary px-3 py-1.5 text-xs font-semibold rounded-lg inline-block"
                       >
-                        View Details
+                        {t('common.viewDetails')}
                       </Link>
                     </td>
                   </tr>
@@ -200,7 +221,7 @@ export const MyComplaintsPage: React.FC = () => {
               {myComplaints.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-10 text-center text-[#63718A]">
-                    No complaints match your current filter criteria.
+                    {t('myComplaints.empty')}
                   </td>
                 </tr>
               )}

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { CharminarHeroIllustration } from '../../components/common/CharminarHeroIllustration';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { getVisualAssetForDepartmentOrCategory } from '../../utils/departmentAssets';
 
 const CATEGORY_CARDS = [
@@ -78,6 +79,7 @@ const CATEGORY_CARDS = [
 export const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { grievances, departments } = useApp();
+  const { t, translateCategory, translateDepartment } = useLanguage();
 
   const resolvedCount = grievances.filter(
     (g) => g.status === 'RESOLVED' || g.status === 'CLOSED'
@@ -91,23 +93,20 @@ export const HomePage: React.FC = () => {
           <div className="lg:col-span-7 flex flex-col justify-center space-y-6">
             <div className="text-xs font-medium text-[#63718A]">
               <span className="text-[#102A56] font-semibold">
-                Hyderabad Municipal Pilot
+                {t('app.pilot')}
               </span>
               <span className="mx-2">·</span>
-              <span>Multilingual Citizen Redressal</span>
+              <span>{t('app.multilingual')}</span>
               <span className="mx-2">·</span>
               <span>English · తెలుగు · हिन्दी</span>
             </div>
 
             <h1 className="text-3xl sm:text-5xl font-bold tracking-tight text-[#102A56] leading-tight">
-              Every Voice Matters. Every Grievance Counts.
+              {t('home.heroTitle')}
             </h1>
 
             <p className="text-base text-[#63718A] max-w-2xl leading-relaxed">
-              JANASEVA AI empowers citizens across Hyderabad to report civic
-              issues in English, Telugu, or Hindi, route complaints directly to
-              the responsible municipal department, and track resolution progress
-              with full audit transparency.
+              {t('home.heroDesc')}
             </p>
 
             <div className="flex flex-wrap items-center gap-4 pt-2">
@@ -116,7 +115,7 @@ export const HomePage: React.FC = () => {
                 onClick={() => navigate('/citizen/register')}
                 className="jana-btn-accent px-6 py-3 text-sm font-semibold rounded-xl flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
-                <span>Report a Grievance</span>
+                <span>{t('home.reportGrievance')}</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
 
@@ -126,7 +125,7 @@ export const HomePage: React.FC = () => {
                 className="jana-btn-secondary px-6 py-3 text-sm font-semibold rounded-xl flex items-center gap-2 cursor-pointer whitespace-nowrap"
               >
                 <Search className="w-4 h-4 text-[#48A9E8]" />
-                <span>Track Your Complaint</span>
+                <span>{t('home.trackYourComplaint')}</span>
               </button>
             </div>
 
@@ -137,7 +136,7 @@ export const HomePage: React.FC = () => {
                   {departments.length || 7}
                 </div>
                 <div className="text-xs text-[#63718A] mt-0.5">
-                  Civic Departments
+                  {t('home.civicDepartments')}
                 </div>
               </div>
               <div>
@@ -145,15 +144,15 @@ export const HomePage: React.FC = () => {
                   3
                 </div>
                 <div className="text-xs text-[#63718A] mt-0.5">
-                  Supported Languages
+                  {t('home.supportedLanguages')}
                 </div>
               </div>
               <div>
                 <div className="text-2xl font-bold text-emerald-700 font-mono tabular-nums">
-                  {grievances.length} ({resolvedCount} Resolved)
+                  {grievances.length} ({resolvedCount} {t('home.resolved')})
                 </div>
                 <div className="text-xs text-[#63718A] mt-0.5">
-                  Active Demo Tickets
+                  {t('home.activeDemoTickets')}
                 </div>
               </div>
             </div>
@@ -169,31 +168,30 @@ export const HomePage: React.FC = () => {
       <section className="max-w-7xl mx-auto px-6">
         <div className="mb-8">
           <h2 className="text-2xl font-bold text-[#102A56]">
-            How JANASEVA AI Works
+            {t('home.howItWorks')}
           </h2>
           <p className="text-sm text-[#63718A] mt-1">
-            A streamlined 4-step workflow from citizen grievance submission to
-            verified resolution.
+            {t('home.howItWorksDesc')}
           </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             {
-              step: '01. Submit in Your Language',
-              desc: 'Describe the civic issue in English, Telugu (తెలుగు), or Hindi (हिन्दी) along with locality and landmark details.',
+              step: t('home.step1.title'),
+              desc: t('home.step1.desc'),
             },
             {
-              step: '02. Department Mapping',
-              desc: 'Your complaint is mapped to the responsible Hyderabad municipal department based on our 7 civic categories.',
+              step: t('home.step2.title'),
+              desc: t('home.step2.desc'),
             },
             {
-              step: '03. Instant Ticket ID',
-              desc: 'Receive a unique tracking ID (e.g., JANA-HYD-2026-1042) immediately—even if you submit without sharing personal details.',
+              step: t('home.step3.title'),
+              desc: t('home.step3.desc'),
             },
             {
-              step: '04. Track Resolution Live',
-              desc: 'Monitor every status transition (Submitted → Assigned → In Progress → Resolved) and read official field remarks.',
+              step: t('home.step4.title'),
+              desc: t('home.step4.desc'),
             },
           ].map((item) => (
             <div
@@ -218,10 +216,10 @@ export const HomePage: React.FC = () => {
         <div className="jana-card p-8">
           <div className="mb-6">
             <h2 className="text-2xl font-bold text-[#102A56]">
-              Supported Languages
+              {t('home.supportedLanguages')}
             </h2>
             <p className="text-sm text-[#63718A] mt-1">
-              Built for inclusive citizen access across English, Telugu, and Hindi.
+              English · తెలుగు (Telugu) · हिन्दी (Hindi)
             </p>
           </div>
 
@@ -271,17 +269,17 @@ export const HomePage: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
           <div>
             <h2 className="text-2xl font-bold text-[#102A56]">
-              Seven Civic Grievance Categories &amp; Departments
+              {t('home.sevenCategories')}
             </h2>
             <p className="text-sm text-[#63718A] mt-1">
-              Direct department routing across Hyderabad&apos;s 7 civic infrastructure wings.
+              {t('home.sevenCategoriesDesc')}
             </p>
           </div>
           <Link
             to="/citizen/register"
             className="text-xs font-semibold text-[#1D4ED8] hover:underline whitespace-nowrap"
           >
-            Register a Complaint in Any Category →
+            {t('home.registerAnyCategory')}
           </Link>
         </div>
 
@@ -296,7 +294,6 @@ export const HomePage: React.FC = () => {
                 key={item.category}
                 className="jana-card jana-card-interactive overflow-hidden flex flex-col justify-between group"
               >
-                {/* 16:9 Uploaded Department Banner Thumbnail */}
                 <div className="relative aspect-video w-full overflow-hidden bg-slate-900 border-b border-sky-200/70">
                   <img
                     src={visualAsset.bannerImage}
@@ -309,7 +306,7 @@ export const HomePage: React.FC = () => {
                   <div>
                     <div className="flex items-center justify-between text-xs text-[#63718A] mb-2.5">
                       <span className="font-semibold text-[#1D4ED8]">
-                        {item.department}
+                        {translateDepartment(item.department)}
                       </span>
                       <span className="font-mono tabular-nums text-[#63718A]">
                         {item.sla}
@@ -318,7 +315,7 @@ export const HomePage: React.FC = () => {
                     <div className="flex items-center gap-2.5 mb-2">
                       <Icon className="w-5 h-5 text-[#102A56] shrink-0" />
                       <h3 className="text-base font-bold text-[#102A56]">
-                        {item.category}
+                        {translateCategory(item.category)}
                       </h3>
                     </div>
                     <p className="text-xs text-[#63718A] leading-relaxed">
@@ -341,7 +338,7 @@ export const HomePage: React.FC = () => {
                       }
                       className="text-xs font-semibold text-[#102A56] hover:text-[#EA580C] transition-colors cursor-pointer whitespace-nowrap"
                     >
-                      Report Issue →
+                      {t('home.reportIssue')}
                     </button>
                   </div>
                 </div>
@@ -356,18 +353,19 @@ export const HomePage: React.FC = () => {
         <div className="bg-[#102A56] text-white rounded-2xl border border-sky-300/40 shadow-lg p-8 lg:p-10 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div className="lg:col-span-7 space-y-4">
             <h2 className="text-2xl font-bold text-white">
-              Why Choose JANASEVA AI
+              {t('home.whyChoose')}
             </h2>
             <p className="text-sm text-slate-300 leading-relaxed max-w-xl">
-              Designed with Privacy-by-Design and transparent status auditing so
-              every citizen can hold civic bodies accountable without barriers.
+              Designed with Multilingual Voice AI, Gemini 3.8 Flash
+              understanding, and transparent status auditing so every citizen
+              can hold civic bodies accountable without barriers.
             </p>
             <ul className="space-y-2.5 text-xs text-slate-200 pt-2">
               <li className="flex items-center gap-2.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                 <span>
-                  Privacy-First: Submit and track grievances without mandatory
-                  personal identity disclosure.
+                  Voice-First Multilingual Support: Speak or type in English,
+                  Telugu (తెలుగు), or Hindi (हिन्दी).
                 </span>
               </li>
               <li className="flex items-center gap-2.5">
@@ -393,14 +391,14 @@ export const HomePage: React.FC = () => {
               onClick={() => navigate('/login')}
               className="jana-btn-accent px-5 py-3 text-xs font-semibold rounded-xl text-center cursor-pointer"
             >
-              Try Citizen or Admin Demo Login
+              {t('home.tryDemoLogin')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/track')}
               className="px-5 py-3 text-xs font-semibold text-white bg-slate-800/90 hover:bg-slate-700 border border-sky-400/30 rounded-xl transition-colors text-center cursor-pointer"
             >
-              Track Existing Ticket (e.g. JANA-HYD-2026-1042)
+              {t('home.trackExisting')}
             </button>
           </div>
         </div>

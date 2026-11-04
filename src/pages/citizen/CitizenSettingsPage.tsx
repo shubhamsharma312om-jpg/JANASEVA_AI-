@@ -2,14 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CheckCircle2, LogOut } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { LanguageCode } from '../../types/janaseva';
 
 export const CitizenSettingsPage: React.FC = () => {
   const { user, updateProfile, logout } = useApp();
+  const { t, uiLanguage, setUiLanguage } = useLanguage();
   const navigate = useNavigate();
 
   const [language, setLanguage] = useState<LanguageCode>(
-    user?.preferred_language || 'te'
+    uiLanguage || user?.preferred_language || 'en'
   );
   const [smsAlerts, setSmsAlerts] = useState(true);
   const [emailAlerts, setEmailAlerts] = useState(true);
@@ -22,6 +24,7 @@ export const CitizenSettingsPage: React.FC = () => {
   const handleSavePreferences = (e: React.FormEvent) => {
     e.preventDefault();
     updateProfile({ preferred_language: language });
+    setUiLanguage(language);
     setMessage('Language and notification preferences updated.');
     setTimeout(() => setMessage(null), 3000);
   };
@@ -57,20 +60,25 @@ export const CitizenSettingsPage: React.FC = () => {
       {/* Language & Notification Preferences */}
       <section className="jana-card p-6 sm:p-8">
         <h1 className="text-xl font-bold text-[#102A56]">
-          Language &amp; Notification Settings
+          {t('nav.settings')}
         </h1>
         <p className="text-xs text-[#63718A] mt-1 mb-6">
-          Configure how JANASEVA AI communicates ticket updates with you.
+          Configure how JANASEVA AI displays the interface and communicates
+          ticket updates with you.
         </p>
 
         <form onSubmit={handleSavePreferences} className="space-y-4 text-xs">
           <div>
             <label className="block font-semibold text-[#102A56] mb-1.5">
-              Default Interface &amp; Grievance Language
+              {t('common.uiLanguage')}
             </label>
             <select
               value={language}
-              onChange={(e) => setLanguage(e.target.value as LanguageCode)}
+              onChange={(e) => {
+                const nextLang = e.target.value as LanguageCode;
+                setLanguage(nextLang);
+                setUiLanguage(nextLang);
+              }}
               className="w-full sm:w-72 px-3.5 py-2 text-sm bg-[#FFFCF7] border border-sky-300/80 rounded-xl"
             >
               <option value="en">English (en)</option>
@@ -108,8 +116,7 @@ export const CitizenSettingsPage: React.FC = () => {
                 className="rounded border-sky-300"
               />
               <span>
-                Hide my name by default when registering new grievances
-                (Privacy-by-Design)
+                Hide my name on public status boards (Privacy-by-Design)
               </span>
             </label>
           </div>
@@ -119,7 +126,7 @@ export const CitizenSettingsPage: React.FC = () => {
               type="submit"
               className="jana-btn-primary px-5 py-2 text-xs font-semibold rounded-xl cursor-pointer"
             >
-              Save Preferences
+              {t('common.save')}
             </button>
           </div>
         </form>
@@ -179,7 +186,7 @@ export const CitizenSettingsPage: React.FC = () => {
       <section className="jana-card p-6 flex items-center justify-between">
         <div>
           <h2 className="text-sm font-bold text-[#102A56]">
-            Sign Out of Session
+            {t('common.logout')}
           </h2>
           <p className="text-xs text-[#63718A] mt-0.5">
             Safely end your active citizen session on this device.
@@ -191,7 +198,7 @@ export const CitizenSettingsPage: React.FC = () => {
           className="px-4 py-2 text-xs font-semibold text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl flex items-center gap-2 cursor-pointer"
         >
           <LogOut className="w-4 h-4" />
-          <span>Logout</span>
+          <span>{t('common.logout')}</span>
         </button>
       </section>
     </div>

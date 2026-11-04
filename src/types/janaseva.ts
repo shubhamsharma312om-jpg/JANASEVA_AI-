@@ -11,6 +11,8 @@ export type GrievanceCategory =
 
 export type PriorityLevel = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
 
+export type ProvisionalPriority = 'low' | 'normal' | 'high' | 'critical';
+
 /**
  * Note: In SQLite schema.sql, Assigned is stored as 'ROUTED'.
  * In the UI, we display 'Assigned' for 'ROUTED'/'ASSIGNED'.
@@ -23,6 +25,79 @@ export type GrievanceStatus =
   | 'RESOLVED'
   | 'REJECTED'
   | 'CLOSED';
+
+export type GrievanceIntentType =
+  | 'CIVIC_GRIEVANCE'
+  | 'GREETING'
+  | 'GENERAL_QUESTION'
+  | 'UNRELATED_QUERY'
+  | 'AMBIGUOUS_REQUEST'
+  | 'EMERGENCY_OR_IMMEDIATE_DANGER';
+
+export interface ExtractedLocation {
+  village: string | null;
+  town?: string | null;
+  city: string | null;
+  district: string | null;
+  mandal?: string | null;
+  ward?: string | null;
+  area: string | null;
+  street: string | null;
+  house_number: string | null;
+  landmark: string | null;
+  pincode?: string | null;
+  additional_location_details: string | null;
+}
+
+export interface IdentifiedCivicIssue {
+  issue_number: number;
+  category: GrievanceCategory | string;
+  department_name: string;
+  department_id: string;
+  problem_summary: string;
+  priority: ProvisionalPriority;
+  confidence_score: number;
+  extracted_location?: string | null;
+}
+
+export interface GrievanceAIAnalysisResult {
+  original_transcript: string;
+  detected_language: string;
+  intent_type?: GrievanceIntentType | string;
+  is_valid_grievance?: boolean;
+  citizen_name: string | null;
+  contact_number: string | null;
+  email: string | null;
+  citizen_reference_id?: string | null;
+  designation: string | null;
+  problem_summary: string;
+  problem_description: string;
+  location: ExtractedLocation;
+  problem_duration: string | null;
+  incident_date: string | null;
+  affected_people: string | null;
+  department_category: GrievanceCategory | string | null;
+  department_name: string | null;
+  department_id: string | null;
+  classification_explanation?: string;
+  priority: ProvisionalPriority;
+  priority_reason: string;
+  safety_advisory?: string | null;
+  missing_information: string[];
+  missing_mandatory_fields?: string[];
+  needs_clarification: boolean;
+  clarification_question: string | null;
+  enhanced_complaint: string;
+  confidence_score?: number;
+  confidence_band?: 'HIGH' | 'MEDIUM' | 'LOW' | string;
+  secondary_categories?: string[];
+  identified_issues?: IdentifiedCivicIssue[];
+  processing_source?: 'gemini' | 'hybrid' | 'python_fallback' | 'failed' | string;
+  ai_provider_used?: string;
+  llm_api_configured?: boolean;
+  missing_env_vars?: string[];
+  provenance_details?: Record<string, any>;
+}
 
 export interface GrievanceHistoryRecord {
   history_id: number;

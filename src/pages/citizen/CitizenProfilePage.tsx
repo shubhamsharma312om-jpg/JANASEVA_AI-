@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { useLanguage } from '../../i18n/LanguageContext';
 import { LanguageCode } from '../../types/janaseva';
 
 export const CitizenProfilePage: React.FC = () => {
   const { user, updateProfile } = useApp();
+  const { t, uiLanguage, setUiLanguage } = useLanguage();
 
   const [name, setName] = useState(user?.name || 'Arjun Reddy');
   const [email, setEmail] = useState(user?.email || 'citizen@janaseva.demo');
   const [mobile, setMobile] = useState(user?.mobile || '+91 98480 22334');
   const [preferredLanguage, setPreferredLanguage] = useState<LanguageCode>(
-    user?.preferred_language || 'te'
+    user?.preferred_language || uiLanguage || 'te'
   );
   const [address, setAddress] = useState(
     user?.address ||
@@ -27,6 +29,7 @@ export const CitizenProfilePage: React.FC = () => {
       preferred_language: preferredLanguage,
       address: address.trim(),
     });
+    setUiLanguage(preferredLanguage);
     setSavedBanner(true);
     setTimeout(() => setSavedBanner(false), 3000);
   };
@@ -35,7 +38,9 @@ export const CitizenProfilePage: React.FC = () => {
     <div className="max-w-3xl space-y-6">
       <section className="jana-card p-6 sm:p-8">
         <div className="pb-5 border-b border-sky-200/70 mb-6">
-          <h1 className="text-xl font-bold text-[#102A56]">Citizen Profile</h1>
+          <h1 className="text-xl font-bold text-[#102A56]">
+            {t('nav.profile')}
+          </h1>
           <p className="text-xs text-[#63718A] mt-1">
             Manage your optional contact details and preferred regional language
             for grievance updates.
@@ -53,7 +58,7 @@ export const CitizenProfilePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Citizen ID (System Assigned)
+                {t('dashboard.citizenId')}
               </label>
               <input
                 type="text"
@@ -65,13 +70,15 @@ export const CitizenProfilePage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Preferred Language
+                {t('register.preferredLanguage')}
               </label>
               <select
                 value={preferredLanguage}
-                onChange={(e) =>
-                  setPreferredLanguage(e.target.value as LanguageCode)
-                }
+                onChange={(e) => {
+                  const nextLang = e.target.value as LanguageCode;
+                  setPreferredLanguage(nextLang);
+                  setUiLanguage(nextLang);
+                }}
                 className="w-full px-3.5 py-2 text-sm bg-[#FFFCF7] border border-sky-300/80 rounded-xl focus:outline-none focus:border-[#1D4ED8]"
               >
                 <option value="en">English (en)</option>
@@ -84,7 +91,7 @@ export const CitizenProfilePage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Full Name
+                {t('registerComplaint.fullName')}
               </label>
               <input
                 type="text"
@@ -96,7 +103,7 @@ export const CitizenProfilePage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-                Mobile Number
+                {t('registerComplaint.mobile')}
               </label>
               <input
                 type="tel"
@@ -109,7 +116,7 @@ export const CitizenProfilePage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-semibold text-[#102A56] mb-1.5">
-              Email Address
+              {t('registerComplaint.email')}
             </label>
             <input
               type="email"
@@ -136,7 +143,7 @@ export const CitizenProfilePage: React.FC = () => {
               type="submit"
               className="jana-btn-primary px-6 py-2.5 text-sm font-semibold rounded-xl cursor-pointer"
             >
-              Save Changes
+              {t('common.save')}
             </button>
           </div>
         </form>
